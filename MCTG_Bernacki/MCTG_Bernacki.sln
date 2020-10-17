@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30517.126
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MCTG_Bernacki", "MCTG_Bernacki.csproj", "{BE837AD4-4AF5-422F-AD7F-E3515808E122}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCTG_Bernacki_UnitTests", "..\MCTG_Bernacki_UnitTests\MCTG_Bernacki_UnitTests.csproj", "{DBF2A107-9151-4CE9-A661-52EEEBD9849B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BE837AD4-4AF5-422F-AD7F-E3515808E122}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE837AD4-4AF5-422F-AD7F-E3515808E122}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE837AD4-4AF5-422F-AD7F-E3515808E122}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE837AD4-4AF5-422F-AD7F-E3515808E122}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBF2A107-9151-4CE9-A661-52EEEBD9849B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBF2A107-9151-4CE9-A661-52EEEBD9849B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBF2A107-9151-4CE9-A661-52EEEBD9849B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBF2A107-9151-4CE9-A661-52EEEBD9849B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {791C5833-F746-4D84-B018-3F4F4E7298B0}
+	EndGlobalSection
+EndGlobal
