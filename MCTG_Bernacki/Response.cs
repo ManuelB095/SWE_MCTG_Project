@@ -71,7 +71,46 @@ namespace MCTG_Bernacki
                     Response badReq = Response.MakeBadRequest();
                     return badReq;
                 }
-            }            
+            }   
+            else if(request.Type == "DELETE")
+            {
+                if(m.Success)
+                {
+                    int found = request.URL.IndexOf("/", 1);
+                    String msg_number = request.URL.Substring(found + 1);
+                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Host);
+
+                    if(Response.DeleteMsgFromNumber(msg_number))
+                    {
+                        Response.UpdateMsgEntrys(); // Renames files, so entrys are numbered consistently 1 to n again
+                        return new Response("200 OK", "text/plain", "Successfully deleted " + msg_number + ".json" + "\n");
+                    }
+                    Response notFound = Response.MakeFileNotFound();
+                    return notFound;                    
+                }
+                Response badRequest = Response.MakeBadRequest();
+                return badRequest;
+            }
+            else if (request.Type == "PUT")
+            {
+                if (request.Payload != "" && m.Success)
+                {
+                    int found = request.URL.IndexOf("/", 1);
+                    String msg_number = request.URL.Substring(found + 1);
+                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Host);
+
+                    if(Response.ReplaceMsg(msg_number, request.Payload))
+                    {
+                        return new Response("200 OK", "text/plain", "Successfully overwritten message " + msg_number + ".json with text: \n\n" + request.Payload + "\n");
+                    }                    
+                    Response notFound = Response.MakeFileNotFound();
+                    return notFound;
+                }               
+                Response badReq = Response.MakeBadRequest();
+                return badReq;                
+            }
+
+            // If none of the above matches, Client sent unknown method to Server:
             Response notAllowed = Response.MakeMethodNotAllowed();
             return notAllowed;
         }
@@ -146,6 +185,59 @@ namespace MCTG_Bernacki
             }
         }
 
+        private static bool ReplaceMsg(String msg_number, String payload)
+        {
+            String f = Environment.CurrentDirectory + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
+            FileInfo file = new FileInfo(f);
+            String newContent = "{\"" + msg_number + "\":\"" + payload + "\"}";
+
+            if (file.Exists && file.Extension.Contains(".json"))
+            {
+                File.WriteAllText(file.FullName, newContent); // Overwrites text inside file with new Content
+                return true;
+            }
+            return false;
+        }
+
+        private static void UpdateMsgEntrys()
+        {
+            String dirPath = Environment.CurrentDirectory + HTTPServer.MSG_DIR;
+            DirectoryInfo d = new DirectoryInfo(dirPath);
+            FileInfo[] files = d.GetFiles();
+            int idCounter = 1;
+
+            foreach(FileInfo file in files)
+            {
+                if(file.Extension.Contains(".json"))
+                {                                        
+                    String oldFileContents = File.ReadAllText(file.FullName);
+                    int found = file.Name.IndexOf(".json");
+                    String oldID = file.Name.Substring(0, found);
+
+                    String newFileContents = Response.ReplaceFirstOccurence(oldFileContents, oldID, idCounter.ToString());
+                    String newFullName = dirPath + "\\" + idCounter.ToString() + ".json";
+
+                    File.WriteAllText(file.FullName, newFileContents);
+                    File.Move(file.FullName, newFullName, false);
+                    idCounter++;
+                }
+            }
+            Debug.Write("Updated Msg_Entrys\n");
+        }
+
+        private static bool DeleteMsgFromNumber(String msg_number)
+        {
+            String f = Environment.CurrentDirectory + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
+            FileInfo file = new FileInfo(f);            
+
+            if (file.Exists && file.Extension.Contains(".json"))
+            {
+                File.Delete(file.FullName);
+                return true;
+            }
+            return false;
+        }
+
         private static String ReadMsgFromNumber(String msg_number)
         {            
             String f = Environment.CurrentDirectory + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
@@ -184,6 +276,16 @@ namespace MCTG_Bernacki
                 }
             }
             return json;
+        }
+
+        private static String ReplaceFirstOccurence(String s, String searchString, String replaceString)
+        {
+            int pos = s.IndexOf(searchString);
+            if (pos < 0)
+            {
+                return s;
+            }
+            return s.Substring(0, pos) + replaceString + s.Substring(pos + searchString.Length);
         }
     }
 }

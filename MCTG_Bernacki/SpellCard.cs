@@ -22,7 +22,7 @@ namespace MCTG_Bernacki
                 else
                     return this.Damage;
 
-            }
+            }            
             else if (this.Element == element.FIRE)
             {
                 if (enemy.Element == element.NORMAL)
