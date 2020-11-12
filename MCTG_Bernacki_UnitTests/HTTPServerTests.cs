@@ -18,7 +18,7 @@ namespace MCTG_Bernacki_UnitTests
             var memory = new MemoryStream();
             var writer = new StreamWriter(memory) { AutoFlush = true};
             String requestAllMessagesRead =
-            @"GET /messages HTTP/1.1\r\n" +
+            "GET /messages HTTP/1.1\r\n" +
             "Host: localhost:8080\r\n" +
             "User-Agent: curl/7.55.1\\n" +
             "Accept: */*\r\n" +
@@ -49,7 +49,7 @@ namespace MCTG_Bernacki_UnitTests
             var memory = new MemoryStream();
             var writer = new StreamWriter(memory) { AutoFlush = true };
             String requestAllMessagesRead =
-            @"GET /messages/2 HTTP/1.1\r\n" +
+            "GET /messages/2 HTTP/1.1\r\n" +
             "Host: localhost:8080\r\n" +
             "User-Agent: curl/7.55.1\\n" +
             "Accept: */*\r\n" +
@@ -78,7 +78,7 @@ namespace MCTG_Bernacki_UnitTests
             var memory = new MemoryStream();
             var writer = new StreamWriter(memory) { AutoFlush = true };
             String requestAllMessagesRead =
-            @"POST /messages HTTP/1.1\r\n" +
+            "POST /messages HTTP/1.1\r\n" +
             "Host: localhost:8080\r\n" +
             "User-Agent: curl/7.55.1\\n" +
             "Accept: */*\r\n" +
@@ -108,7 +108,7 @@ namespace MCTG_Bernacki_UnitTests
             var memory = new MemoryStream();
             var writer = new StreamWriter(memory) { AutoFlush = true };
             String requestAllMessagesRead =
-            @"DELETE /messages/1 HTTP/1.1\r\n" +
+            "DELETE /messages/1 HTTP/1.1\r\n" +
             "Host: localhost:8080\r\n" +
             "User-Agent: curl/7.55.1\\n" +
             "Accept: */*\r\n" +
@@ -136,7 +136,7 @@ namespace MCTG_Bernacki_UnitTests
             var memory = new MemoryStream();
             var writer = new StreamWriter(memory) { AutoFlush = true };
             String requestAllMessagesRead =
-            @"PUT /messages/1 HTTP/1.1\r\n" +
+            "PUT /messages/1 HTTP/1.1\r\n" +
             "Host: localhost:8080\r\n" +
             "User-Agent: curl/7.55.1\\n" +
             "Accept: */*\r\n" +

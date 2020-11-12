@@ -56,14 +56,14 @@ namespace MCTG_Bernacki
                         response += s;
                     }
                     
-                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Host);
+                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Header["Host:"]);
                     return new Response("200 OK", "application/json", response);
                 }
                 else if(m.Success)
                 {
                     int found = request.URL.IndexOf("/", 1);
                     String msg_number = request.URL.Substring(found + 1);
-                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Host);
+                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Header["Host:"]);
 
                     String json = Response.ReadMsgFromNumber(msg_number);
                     
@@ -94,7 +94,7 @@ namespace MCTG_Bernacki
                 {
                     int found = request.URL.IndexOf("/", 1);
                     String msg_number = request.URL.Substring(found + 1);
-                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Host);
+                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Header["Host:"]);
 
                     if(Response.DeleteMsgFromNumber(msg_number))
                     {
@@ -113,7 +113,7 @@ namespace MCTG_Bernacki
                 {
                     int found = request.URL.IndexOf("/", 1);
                     String msg_number = request.URL.Substring(found + 1);
-                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Host);
+                    Console.WriteLine("Message received: " + request.Type + request.URL + " " + request.Header["Host:"]);
 
                     if(Response.ReplaceMsg(msg_number, request.Payload))
                     {
