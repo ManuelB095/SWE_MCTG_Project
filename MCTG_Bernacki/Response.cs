@@ -15,11 +15,27 @@ namespace MCTG_Bernacki
         private String mimeType;
         private String message;
 
+        public const String EnvironmentPath = @"C:\Users\mbern\" +
+        @"Downloads\FH-Stuff\3.Semester\SWE\MCTG\MCTG_Bernacki\bin\Debug\netcoreapp3.1";
+
         private Response(String status, String mimeType, String message)
         {            
             this.status = status;
             this.mimeType = mimeType;
             this.message = message;
+        }
+
+        public String GetStatus()
+        {
+            return this.status;
+        }
+        public String GetMimeType()
+        {
+            return this.mimeType;
+        }
+        public String GetMessage()
+        {
+            return this.message;
         }
 
         public static Response From(Request request)
@@ -115,7 +131,7 @@ namespace MCTG_Bernacki
             return notAllowed;
         }
 
-        public void Post(System.Net.Sockets.NetworkStream stream)
+        public void Post(Stream stream)
         {
             StreamWriter writer = new StreamWriter(stream) { AutoFlush = true};
             String responseText = HTTPServer.VERSION + " " + this.status + "\n";
@@ -129,7 +145,7 @@ namespace MCTG_Bernacki
 
         private static Response MakeBadRequest()
         {
-            String path = Environment.CurrentDirectory + HTTPServer.STAT_DIR + "\\" + "400.html";
+            String path = EnvironmentPath + HTTPServer.STAT_DIR + "\\" + "400.html";
             FileInfo statCode = new FileInfo(path);
             if (statCode.Exists)
             {
@@ -141,7 +157,7 @@ namespace MCTG_Bernacki
 
         private static Response MakeFileNotFound()
         {
-            String path = Environment.CurrentDirectory + HTTPServer.STAT_DIR + "\\" + "404.html";
+            String path = EnvironmentPath + HTTPServer.STAT_DIR + "\\" + "404.html";
             FileInfo statCode = new FileInfo(path);
             if (statCode.Exists)
             {
@@ -153,7 +169,7 @@ namespace MCTG_Bernacki
 
         private static Response MakeMethodNotAllowed()
         {
-            String path = Environment.CurrentDirectory + HTTPServer.STAT_DIR + "\\" + "405.html";
+            String path = EnvironmentPath + HTTPServer.STAT_DIR + "\\" + "405.html";
             FileInfo statCode = new FileInfo(path);
             if (statCode.Exists)
             {
@@ -165,7 +181,7 @@ namespace MCTG_Bernacki
 
         private static void CreateNewMsgEntry(String payload)
         {
-            String dirPath = Environment.CurrentDirectory + HTTPServer.MSG_DIR;
+            String dirPath = EnvironmentPath + HTTPServer.MSG_DIR;
             DirectoryInfo dif = new DirectoryInfo(dirPath);
             FileInfo[] files = dif.GetFiles();
             String msgID = (files.Length + 1).ToString();
@@ -187,7 +203,7 @@ namespace MCTG_Bernacki
 
         private static bool ReplaceMsg(String msg_number, String payload)
         {
-            String f = Environment.CurrentDirectory + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
+            String f = EnvironmentPath + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
             FileInfo file = new FileInfo(f);
             String newContent = "{\"" + msg_number + "\":\"" + payload + "\"}";
 
@@ -201,7 +217,7 @@ namespace MCTG_Bernacki
 
         private static void UpdateMsgEntrys()
         {
-            String dirPath = Environment.CurrentDirectory + HTTPServer.MSG_DIR;
+            String dirPath = EnvironmentPath + HTTPServer.MSG_DIR;
             DirectoryInfo d = new DirectoryInfo(dirPath);
             FileInfo[] files = d.GetFiles();
             int idCounter = 1;
@@ -227,7 +243,7 @@ namespace MCTG_Bernacki
 
         private static bool DeleteMsgFromNumber(String msg_number)
         {
-            String f = Environment.CurrentDirectory + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
+            String f = EnvironmentPath + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
             FileInfo file = new FileInfo(f);            
 
             if (file.Exists && file.Extension.Contains(".json"))
@@ -240,7 +256,7 @@ namespace MCTG_Bernacki
 
         private static String ReadMsgFromNumber(String msg_number)
         {            
-            String f = Environment.CurrentDirectory + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
+            String f = EnvironmentPath + HTTPServer.MSG_DIR + "\\" + msg_number + ".json";
             FileInfo file = new FileInfo(f);
             String json = "";
 
@@ -258,7 +274,7 @@ namespace MCTG_Bernacki
 
         private static List<String> ReadAllMsgs()
         {            
-            String dirPath = Environment.CurrentDirectory + HTTPServer.MSG_DIR;
+            String dirPath = EnvironmentPath + HTTPServer.MSG_DIR;
             DirectoryInfo dif = new DirectoryInfo(dirPath);
             FileInfo[] files = dif.GetFiles();
 

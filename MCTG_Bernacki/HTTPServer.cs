@@ -18,6 +18,9 @@ namespace MCTG_Bernacki
         public const String VERSION = "HTTP/1.1";
         public const String NAME = "Manuel`s HTTP Server";
 
+        public Response Response { get; private set; }
+        public Request Request { get; private set; }
+
 
         private TcpListener listener;
 
@@ -41,7 +44,8 @@ namespace MCTG_Bernacki
             {
                 Console.WriteLine("waiting for connection...");
 
-                TcpClient client = listener.AcceptTcpClient();
+                TcpClient temp = listener.AcceptTcpClient();
+                IMyTcpClient client = new TcpClientWrapper(temp);
 
                 Console.WriteLine("Client Connected");
 
@@ -53,7 +57,7 @@ namespace MCTG_Bernacki
             listener.Stop();            
         }
 
-        private void HandleClient(TcpClient client)
+        public void HandleClient(IMyTcpClient client)
         {
             StreamReader reader = new StreamReader(client.GetStream());
             String msg = "";
@@ -63,11 +67,10 @@ namespace MCTG_Bernacki
             }
             Console.WriteLine("Request: \n" + msg);
             
-            Request req = Request.GetRequest(msg);
-            Response resp = Response.From(req);
-            resp.Post(client.GetStream());
+            this.Request = Request.GetRequest(msg);
+            this.Response = Response.From(this.Request);
+            this.Response.Post(client.GetStream());
         }
-
 
     }
 
