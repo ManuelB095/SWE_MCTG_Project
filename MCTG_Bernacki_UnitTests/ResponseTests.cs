@@ -13,7 +13,7 @@ namespace MCTG_Bernacki_UnitTests
         // The response depends on the 
         public void From_CreateResponseFromRequest_ReturnsResponse()
         {
-            String msg = @"GET /messages HTTP/1.1\r\n" +
+            String msg = "GET /messages HTTP/1.1\r\n" +
             "Host: localhost:8080\r\n" +
             "User-Agent: curl/7.55.1\\n" +
             "Accept: */*\r\n" +
