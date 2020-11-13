@@ -74,6 +74,8 @@ namespace MCTG_Bernacki
                     Response notFound = Response.MakeFileNotFound();
                     return notFound;
                 }
+                Response badReq = Response.MakeBadRequest();
+                return badReq;
             }
             else if(request.Type == "POST")
             {
