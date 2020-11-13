@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MCTG_Bernacki
 {
-    public class Request
+    public class Request : IRequest
     {
         public String Type { get; private set; }
         public String URL { get; private set; }
@@ -45,7 +45,7 @@ namespace MCTG_Bernacki
             String version = headLineTokens[2];
 
             // Get the Headers ( only specific headers allowed/read in )
-            String[] allowedHeaders = {"Host:", "User-Agent:", "Content-type:", "Content-length:"};
+            String[] allowedHeaders = {"Host", "User-Agent", "Accept", "Content-type", "Content-length"};
             Dictionary<String, String> header = Request.GetAllHeaders(headerData, allowedHeaders);            
 
             // Get The Payload ( if any )
@@ -61,7 +61,7 @@ namespace MCTG_Bernacki
             {
                 int foundEnd = searchstring.IndexOf("\r\n", foundStart);
                 String data = searchstring.Substring
-                    (foundStart + header.Length, foundEnd - foundStart - header.Length);
+                    (foundStart + header.Length + 2, foundEnd - foundStart - header.Length - 2);
                 return data;
             }
             return null;

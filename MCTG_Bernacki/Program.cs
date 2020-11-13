@@ -5,8 +5,8 @@ namespace MCTG_Bernacki
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Starting Server on port 8080");
-            HTTPServer server = new HTTPServer(8080);
+            Console.WriteLine("Starting Server on port 10001");
+            HTTPServer server = new HTTPServer(10001);
             server.Start();     
         }
     }
