@@ -48,7 +48,31 @@ namespace MCTG_Bernacki
             
             if (request.Type == "GET")
             {
-                if(request.URL == "/messages")
+                if(request.URL == "/cards")
+                {
+                    if (Response.TokenIsValid(request.Header["Authorization"]))
+                    {
+                        int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
+                        List<int> CardIDs = Response.GetStack(uid);
+                        if(CardIDs.Count > 0)
+                        {
+                            String msg = "You have the following Cards(ID): ";
+                            foreach(int id in CardIDs)
+                            {
+                                msg += "\n" + id;
+                            }
+                            return new Response("200 OK", "text/plain", msg);
+
+                        }
+                    }
+                    return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
+                }
+
+
+
+
+
+                else if(request.URL == "/messages")
                 {
                     List<String> msgsJson = Response.ReadAllMsgs();
                     String response = "";
@@ -88,8 +112,10 @@ namespace MCTG_Bernacki
 
                     if(Response.LogInUser(ui.Username, ui.Password) == true)
                     {
-                        Response.CreateToken(ui.Username);
-                        return new Response("200 OK", "text/plain", "Successfully logged in!\nWelcome " + ui.Username);
+                        if(Response.CreateToken(ui.Username)==true)
+                        {
+                            return new Response("200 OK", "text/plain", "Successfully logged in!\nWelcome " + ui.Username);
+                        }
                     }
                     else
                     {
@@ -133,6 +159,36 @@ namespace MCTG_Bernacki
                     }
                     return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
                 }
+
+
+
+
+
+
+
+                else if(request.URL == "/transactions/packages")
+                {
+                    if(Response.TokenIsValid(request.Header["Authorization"]))
+                    {
+                        int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
+                        if(Response.BuyPackage(uid,11))
+                        {
+                            return new Response("200 OK", "text/plain", "You bought a package!");
+                        }
+                        return new Response("200 OK", "text/plain", "Not enough money to buy the package!");
+
+                    }
+                    return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
+                }
+
+
+
+
+
+
+
+
+
 
                 else if(request.URL == "/packages")
                 {
@@ -332,6 +388,9 @@ namespace MCTG_Bernacki
 
         private static bool CreateUser(String _username, String _password)
         {
+            int uid = -1;
+            int startCoins = 20;
+            int startElo = 100;
             using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
             conn.Open();
 
@@ -341,6 +400,33 @@ namespace MCTG_Bernacki
                 {
                     cmd.Parameters.AddWithValue("username", _username);
                     cmd.Parameters.AddWithValue("password", _password);
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();
+                }
+                conn.Close();
+                conn.Open();
+
+                using (var cmd = new NpgsqlCommand("Select uid From Users Where username = @username", conn))
+                {
+                    cmd.Parameters.AddWithValue("username", _username);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while(reader.Read())
+                    {
+                        uid = (int)reader["uid"];
+                    }
+
+                }
+                conn.Close();
+                conn.Open();
+
+                using (var cmd = new NpgsqlCommand("Insert Into Player(pid,coins,elo) Values(@pid,@coins,@elo)", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", uid);
+                    cmd.Parameters.AddWithValue("coins", startCoins);
+                    cmd.Parameters.AddWithValue("elo", startElo);
+
                     cmd.Prepare();
                     cmd.ExecuteNonQuery();
                 }
@@ -434,13 +520,14 @@ namespace MCTG_Bernacki
 
         }
 
-        private static void CreateToken(String user)
+        private static bool CreateToken(String user)
         {
             String dirPath = EnvironmentPath + HTTPServer.TOK_DIR;
             DirectoryInfo dif = new DirectoryInfo(dirPath);
             FileInfo[] files = dif.GetFiles();
 
-            String newFilename = user + "-mtcgToken" + ".tok";
+            String tokenName = user + "-mtcgToken";
+            String newFilename = tokenName + ".tok";
 
             // Token stays valid for one day!
             String timestamp = DateTime.Now.AddDays(1).ToString();
@@ -450,15 +537,14 @@ namespace MCTG_Bernacki
                 using (StreamWriter w = new StreamWriter(@dirPath + "\\" + newFilename))
                 {
                     w.Write(timestamp);
-                }
-                return;
+                }                
             }
             foreach (FileInfo f in files)
             {
                 if(f.Name == newFilename) //If old token already exists:
                 {
                     File.WriteAllText(f.FullName, timestamp); // Override old timestamp
-                    return;
+                    break;
                 }
                 else
                 {
@@ -466,9 +552,29 @@ namespace MCTG_Bernacki
                     {
                         w.Write(timestamp);
                     }
-                    return;
                 }
-            }           
+            }
+
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Update Users Set token = @token Where username = @username", conn))
+                {
+                    cmd.Parameters.AddWithValue("token", tokenName);
+                    cmd.Parameters.AddWithValue("username", user);
+
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();
+                }
+                return true;
+            }
+            catch
+            {
+                Console.WriteLine("Some error in DataBase while posting token to DataBase!");
+                return false;
+            }
         }
 
         private static bool TokenIsValid(String user)
@@ -501,6 +607,187 @@ namespace MCTG_Bernacki
                 // If nothing was found or Timestamp is simply obsolete
                 return false;
             }
+        }
+
+        private static String GetUsernameFromToken(String token)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select username From Users Where token = @token", conn))
+                {
+                    cmd.Parameters.AddWithValue("token", token);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while(reader.Read())
+                    {
+                        return (String)reader["username"];
+                    }
+                    return "ERROR";
+                }
+            }
+            catch
+            {
+                Console.WriteLine("Some error in DataBase while posting token to DataBase!");
+                return "ERROR";
+            }
+        }
+
+        private static int GetUIDFromToken(String token)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select uid From Users Where token = @token", conn))
+                {
+                    cmd.Parameters.AddWithValue("token", token);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        return (int)reader["uid"];
+                    }
+                    return -1;
+                }
+            }
+            catch
+            {
+                Console.WriteLine("Some error in DataBase while posting token to DataBase!");
+                return -1;
+            }
+        }
+
+        private static List<int> GetStack(int uid)
+        {
+            List<int> CardIDs = new List<int>();
+
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select card_id From cardinstack Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", uid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            CardIDs.Add((int)reader[i]);
+                        }
+                    }
+                }
+                return CardIDs;
+            }
+            catch
+            {
+                //throw;
+            }
+            return CardIDs;
+        }
+
+        private static bool BuyPackage(int _pid, int package_id)
+        {
+            int availableCoins = -1;
+            int packagePrice = -1;
+            List<int> CardIDs = new List<int>();
+
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select coins From Player Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        availableCoins = (int)reader["coins"];
+                    }
+                }
+                conn.Close();
+                conn.Open();
+
+                using (var cmd = new NpgsqlCommand("Select price From Package Where package_id = @package_id", conn))
+                {
+                    cmd.Parameters.AddWithValue("package_id", package_id);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        packagePrice = (int)reader["price"];
+                    }
+                }
+                conn.Close();
+                conn.Open();
+
+                if (availableCoins >= packagePrice)
+                {
+                    int newBalance = availableCoins - packagePrice;
+
+                    using (var cmd = new NpgsqlCommand("Update Player Set coins = @coins Where pid = @pid", conn))
+                    {
+                        cmd.Parameters.AddWithValue("coins", newBalance);
+                        cmd.Parameters.AddWithValue("pid", _pid);
+
+                        cmd.Prepare();
+                        cmd.ExecuteNonQuery();
+                    }
+                    conn.Close();
+                    conn.Open();
+
+                    using (var cmd = new NpgsqlCommand("Select card_id From packagecontent Where package_id = @package_id", conn))
+                    {
+                        cmd.Parameters.AddWithValue("package_id", package_id);
+                        cmd.Prepare();
+                        NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                        while (reader.Read())
+                        {
+                            for(int i=0; i < reader.FieldCount;i++)
+                            {
+                                CardIDs.Add((int)reader[i]);
+                            }
+                        }
+                    }
+                    conn.Close();
+                    conn.Open();
+
+                    foreach(int id in CardIDs)
+                    {
+                        using (var cmd = new NpgsqlCommand("Insert Into cardinstack(pid, card_id) Values(@pid, @cardid)", conn))
+                        {
+                            cmd.Parameters.AddWithValue("pid", _pid);
+                            cmd.Parameters.AddWithValue("cardid", id);
+
+                            cmd.Prepare();
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    conn.Close();                    
+                    return true;
+                }
+            }
+            catch
+            {
+                Console.WriteLine("Some error in DataBase while posting token to DataBase!");
+                return false;
+            }
+            return false;
         }
 
         private static void UpdateMsgEntrys()
