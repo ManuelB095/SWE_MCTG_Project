@@ -14,9 +14,12 @@ namespace MCTG_Bernacki
         //private int port;        
         private bool running = false;
         public const String MSG_DIR = "/root/messages";
-        public const String STAT_DIR = "/root/statcodes";        
+        public const String STAT_DIR = "/root/statcodes";
+        public const String TOK_DIR = "/root/tokens";
         public const String VERSION = "HTTP/1.1";
         public const String NAME = "Manuel`s HTTP Server";
+        public const String CONN_STRING = "Host=localhost;Username=postgres;Password=postgres;Database=MTCG";
+
 
         public Response Response { get; private set; }
         public Request Request { get; private set; }

@@ -45,7 +45,7 @@ namespace MCTG_Bernacki
             String version = headLineTokens[2];
 
             // Get the Headers ( only specific headers allowed/read in )
-            String[] allowedHeaders = {"Host", "User-Agent", "Accept", "Content-type", "Content-length"};
+            String[] allowedHeaders = {"Host", "User-Agent", "Accept", "Authorization", "Content-type", "Content-length"};
             Dictionary<String, String> header = Request.GetAllHeaders(headerData, allowedHeaders);            
 
             // Get The Payload ( if any )

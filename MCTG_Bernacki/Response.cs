@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Npgsql;
 
 namespace MCTG_Bernacki
 {
@@ -79,7 +80,83 @@ namespace MCTG_Bernacki
             }
             else if(request.Type == "POST")
             {
-                if (request.Payload != "" && request.URL == "/messages")
+                if(request.URL == "/sessions")
+                {
+                    UserInfo ui = JsonConvert.DeserializeObject<UserInfo>(request.Payload);
+                    Debug.WriteLine(ui.Username);
+                    Debug.WriteLine(ui.Password);
+
+                    if(Response.LogInUser(ui.Username, ui.Password) == true)
+                    {
+                        Response.CreateToken(ui.Username);
+                        return new Response("200 OK", "text/plain", "Successfully logged in!\nWelcome " + ui.Username);
+                    }
+                    else
+                    {
+                        Response badLogin = Response.MakeBadLogin();
+                        return badLogin;
+                    }
+
+                }
+
+                else if(request.URL == "/users")
+                {
+                    UserInfo ui = JsonConvert.DeserializeObject<UserInfo>(request.Payload);
+                    Debug.WriteLine(ui.Username);
+                    Debug.WriteLine(ui.Password);                    
+
+                    if (Response.CreateUser(ui.Username, ui.Password) == true)
+                    {
+                        return new Response("200 OK", "text/plain", "Successfully created User: " + ui.Username);
+                    }
+                    else
+                    {
+                        Response badRequest = Response.MakeBadRequest();
+                        return badRequest;
+                    }
+                }
+
+                else if(request.URL == "/cards")
+                {
+                    if (Response.TokenIsValid(request.Header["Authorization"]))
+                    {
+                        CardInfo ci = JsonConvert.DeserializeObject<CardInfo>(request.Payload);
+                        if (Response.CreateCard(ci.Name, ci.Type, ci.Element, ci.Damage, ci.Price) == true)
+                        {
+                            return new Response("200 OK", "text/plain", "Successfully created Card: " + ci.Name);
+                        }
+                        else
+                        {
+                            Response badRequest = Response.MakeBadRequest();
+                            return badRequest;
+                        }
+                    }
+                    return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
+                }
+
+                else if(request.URL == "/packages")
+                {
+                    if (Response.TokenIsValid(request.Header["Authorization"]))
+                    {
+                        List<CardID> cd = JsonConvert.DeserializeObject<List<CardID>>(request.Payload);                   
+                        if(Response.CreatePackage(cd) == true)
+                        {
+                            return new Response("200 OK", "text/plain", "Successfully created Package");
+                        }
+                        else
+                        {
+                            Response badRequest = Response.MakeBadRequest();
+                            return badRequest;
+                        }                        
+                    }
+                    else
+                    {
+                        Response badRequest = Response.MakeBadRequest();
+                        return badRequest;
+                    }
+                }
+
+                else if (request.Payload != "" && request.URL == "/messages")
                 {
                     Response.CreateNewMsgEntry(request.Payload);
                     return new Response("200 OK", "text/plain", "Successfully posted message: \n\n" + request.Payload);
@@ -156,6 +233,18 @@ namespace MCTG_Bernacki
             return new Response("400 Bad Request", "text/html", "400 Bad Request");
         }
 
+        private static Response MakeBadLogin()
+        {
+            String path = EnvironmentPath + HTTPServer.STAT_DIR + "\\" + "401.html";
+            FileInfo statCode = new FileInfo(path);
+            if (statCode.Exists)
+            {
+                String fileContents = File.ReadAllText(@statCode.FullName);
+                return new Response("401 Unauthorized", "text/html", fileContents);
+            }
+            return new Response("401 Unauthorized", "text/html", "401 Unauthorized");
+        }
+
         private static Response MakeFileNotFound()
         {
             String path = EnvironmentPath + HTTPServer.STAT_DIR + "\\" + "404.html";
@@ -214,6 +303,204 @@ namespace MCTG_Bernacki
                 return true;
             }
             return false;
+        }
+
+        private static bool LogInUser(String _username, String _password)
+        {            
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            using (var cmd = new NpgsqlCommand("Select * From Users Where username = @username and password = @password", conn))
+            {
+                cmd.Parameters.AddWithValue("username", _username);
+                cmd.Parameters.AddWithValue("password", _password);
+                cmd.Prepare();
+                //cmd.ExecuteNonQuery();
+
+                NpgsqlDataReader dr = cmd.ExecuteReader();
+                
+                if (dr.HasRows)
+                {
+                    conn.Close(); return true;
+                }
+                else
+                {
+                    conn.Close(); return false;
+                }
+            }   
+        }
+
+        private static bool CreateUser(String _username, String _password)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Insert Into Users(username,password,admin) Values(@username,@password,0)", conn))
+                {
+                    cmd.Parameters.AddWithValue("username", _username);
+                    cmd.Parameters.AddWithValue("password", _password);
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            
+        }
+
+        private static bool CreateCard(String _name, String _type, String _element, int _damage, int _price)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Insert Into Card(name,type,element,damage,price) Values(@name,@type,@element,@damage,@price)", conn))
+                {
+                    cmd.Parameters.AddWithValue("name", _name);
+                    cmd.Parameters.AddWithValue("type", _type);
+                    cmd.Parameters.AddWithValue("element", _element);
+                    cmd.Parameters.AddWithValue("damage", _damage);
+                    cmd.Parameters.AddWithValue("price", _price);
+
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+
+        }
+
+        private static bool CreatePackage(List<CardID> cardIDs, int _price = 5)
+        {
+            int newPackageID = -1;
+
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Insert Into Package(price) Values(@price)", conn))
+                {
+                    cmd.Parameters.AddWithValue("price", _price);
+
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();
+                }
+
+                using (var cmd = new NpgsqlCommand("Select max(package_id) As maximum From Package", conn))
+                {
+                    cmd.Prepare();
+                    NpgsqlDataReader dr = cmd.ExecuteReader();
+                    if (dr.HasRows)
+                    {
+                        while(dr.Read())
+                        {
+                            newPackageID = (int)dr["maximum"];                            
+                        }
+                    }
+                    else
+                        newPackageID = 1;
+                }
+                conn.Close();
+                conn.Open();
+
+                foreach (CardID cid in cardIDs)
+                {                    
+                    using (var cmd = new NpgsqlCommand("Insert Into packagecontent(package_id, card_id) Values(@packageid,@cardid)", conn))
+                    {                        
+                        cmd.Parameters.AddWithValue("packageid", newPackageID);
+                        cmd.Parameters.AddWithValue("cardid", cid.ID);
+
+                        cmd.Prepare();
+                        cmd.ExecuteNonQuery();
+                    }
+                }                
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+
+        }
+
+        private static void CreateToken(String user)
+        {
+            String dirPath = EnvironmentPath + HTTPServer.TOK_DIR;
+            DirectoryInfo dif = new DirectoryInfo(dirPath);
+            FileInfo[] files = dif.GetFiles();
+
+            String newFilename = user + "-mtcgToken" + ".tok";
+
+            // Token stays valid for one day!
+            String timestamp = DateTime.Now.AddDays(1).ToString();
+
+            if(files.Length < 1)
+            {
+                using (StreamWriter w = new StreamWriter(@dirPath + "\\" + newFilename))
+                {
+                    w.Write(timestamp);
+                }
+                return;
+            }
+            foreach (FileInfo f in files)
+            {
+                if(f.Name == newFilename) //If old token already exists:
+                {
+                    File.WriteAllText(f.FullName, timestamp); // Override old timestamp
+                    return;
+                }
+                else
+                {
+                    using (StreamWriter w = new StreamWriter(@dirPath + "\\" + newFilename))
+                    {
+                        w.Write(timestamp);
+                    }
+                    return;
+                }
+            }           
+        }
+
+        private static bool TokenIsValid(String user)
+        {
+            String dirPath = EnvironmentPath + HTTPServer.TOK_DIR;
+            DirectoryInfo dif = new DirectoryInfo(dirPath);
+            FileInfo[] files = dif.GetFiles();
+
+            String search = user + ".tok";
+
+            DateTime temp = new DateTime(2000,1,1,0,0,0);
+            String timestamp = temp.ToString();
+                      
+            foreach (FileInfo f in files)
+            {
+                if (f.Name == search)
+                {
+                    timestamp = File.ReadAllText(f.FullName);
+                    break;
+                }                
+            }
+
+            if (DateTime.Compare(Convert.ToDateTime(timestamp), DateTime.Now) >= 0)
+            {
+                // Timestamp is later or same time as DateTime.Now
+                return true;
+            }
+            else
+            {
+                // If nothing was found or Timestamp is simply obsolete
+                return false;
+            }
         }
 
         private static void UpdateMsgEntrys()
