@@ -67,6 +67,25 @@ namespace MCTG_Bernacki
                     }
                     return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
                 }
+                else if(request.URL == "/deck")
+                {
+                    if (Response.TokenIsValid(request.Header["Authorization"]))
+                    {
+                        int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
+                        List<int> CardIDs = Response.GetDeck(uid);
+                        if (CardIDs.Count > 0)
+                        {
+                            String msg = "You have the following Cards(ID) in your Deck: ";
+                            foreach (int id in CardIDs)
+                            {
+                                msg += "\n" + id;
+                            }
+                            return new Response("200 OK", "text/plain", msg);
+
+                        }
+                    }
+                    return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
+                }
 
 
 
@@ -123,6 +142,55 @@ namespace MCTG_Bernacki
                         return badLogin;
                     }
 
+                }
+
+                else if(request.URL == "/battles")
+                {
+                    if(Response.TokenIsValid(request.Header["Authorization"]))
+                    {
+                        // TO DO: 
+                        // First things first, place entry in BattleRequests.
+                        int player_pid = Response.GetUIDFromToken(request.Header["Authorization"]);
+                        Response.PlaceBattleRequest(player_pid);
+
+                        // Then try to find opponent from BattleQueue:
+                        int tries = 0;
+                        int maxTries = 20;
+                        int opponent_pid = 0;
+                        Console.WriteLine("\nSearching for Opponent...");
+                        
+                        do
+                        {                            
+                            System.Threading.Thread.Sleep(1000);
+                            opponent_pid = Response.FindOpponentForBattle(player_pid);
+                            tries++;
+
+                        } while (opponent_pid <= 0 && tries < maxTries);
+                        
+                        // Tried to hard and got so far, in the end, it didn`t even matter - because there was no opponent.
+                        if(tries > maxTries)
+                        {
+                            return new Response("200 OK", "text/plain", "Unfortunately, there don`t seem to be any opponents.. ");
+                        }
+                        // Opponent was found (return > 0): 
+                        
+                        Console.WriteLine("\nOpponent found!\nPlayer " + player_pid + "`s opponent is " + opponent_pid + "\n");
+                        // -> Get his pid #DONE
+
+                        // -> Get both players cardIDs while looping database function, that looks for them in CardInDeck
+
+                        List<int> playerCardIDs = new List<int>();
+                        List<int> opponentCardIDs = new List<int>();
+
+
+
+                        // -> Get card Information by looping database function, that gets card data for every cardID
+                        // -> Execute some kind of BattleHandler, that takes both Player`s Decks (List of Cards)
+                        // -> Determine Winner of Battle and (possibly) create log file.
+                        // -> Send winner and log-file back to both users.
+                        // -> Change elo and stats depending on who won.                        
+
+                    }
                 }
 
                 else if(request.URL == "/users")
@@ -244,7 +312,30 @@ namespace MCTG_Bernacki
             }
             else if (request.Type == "PUT")
             {
-                if (request.Payload != "" && m.Success)
+                if(request.URL == "/deck")
+                {
+                    int deckSize = 5;
+                    if(Response.TokenIsValid(request.Header["Authorization"]))
+                    {
+                        int pid = Response.GetUIDFromToken(request.Header["Authorization"]);
+                        List<CardID>deck = JsonConvert.DeserializeObject<List<CardID>>(request.Payload);
+                        Debug.WriteLine(deck.Count);
+                        if(Response.CheckIfCardsInStack(pid, deck) == true && deck.Count == deckSize)
+                        {
+                            // Good! - Player owns the Cards AND the right amount of Cards was sent. 
+                            // Now we can make configurations on the deck:
+                            if(Response.ConfigureDeck(pid, deck)==true)
+                            {
+                                return new Response("200 OK", "text/plain", "Successfully configured deck!\n");
+                            }
+                        }
+                        return new Response("200 OK", "text/plain", "Could not create Deck with given Cards.\n");
+                    }
+                    Response badLogin = Response.MakeBadLogin();
+                    return badLogin;
+                }
+
+                else if (request.Payload != "" && m.Success)
                 {
                     int found = request.URL.IndexOf("/", 1);
                     String msg_number = request.URL.Substring(found + 1);
@@ -636,6 +727,98 @@ namespace MCTG_Bernacki
             }
         }
 
+        private static String GetUsernameFromUID(int uid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select username From Users Where uid = @uid", conn))
+                {
+                    cmd.Parameters.AddWithValue("uid", uid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        return (String)reader["username"];
+                    }
+                    return "ERROR";
+                }
+            }
+            catch
+            {
+                Console.WriteLine("Some error in DataBase while posting token to DataBase!");
+                return "ERROR";
+            }
+        }
+
+        private static void PlaceBattleRequest(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Insert Into BattleQueue(pid) Values(@pid)", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();                   
+                }
+            }
+            catch
+            {
+                Console.WriteLine("Some error in DataBase while trying to place Battle request!");
+                throw;
+            }
+        }
+
+        private static int FindOpponentForBattle(int player_pid)
+        {
+            List<int> allOpponents = new List<int>();
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            // TO DO: Add ELO Comparing System to find players on similar levels.
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select pid From BattleQueue Where pid != @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", player_pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    if(!reader.HasRows)
+                    {
+                        return -1; // No opponent found!
+                    }
+                    else
+                    {
+                        while(reader.Read())
+                        {
+                            for(int i=0; i<reader.FieldCount;i++)
+                            {
+                                allOpponents.Add((int)reader[i]);
+                            }
+                        }
+
+                        // Choose an opponent from existing list at random
+                        Random rnd = new Random();                        
+                        int opponent_pid = rnd.Next(1, allOpponents.Count);
+                        return allOpponents[opponent_pid];
+                    }
+                }                
+            }
+            catch
+            {
+                Console.WriteLine("Some error in DataBase while trying to FindOpponentForBattle");
+                throw;
+            }
+        }
+
         private static int GetUIDFromToken(String token)
         {
             using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
@@ -788,6 +971,142 @@ namespace MCTG_Bernacki
                 return false;
             }
             return false;
+        }
+
+        private static bool CheckIfCardsInStack(int _pid, List<CardID>cardIDs)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+            
+            try
+            {
+                foreach (CardID id in cardIDs)
+                {
+                    using (var cmd = new NpgsqlCommand("Select card_id From cardinstack Where pid = @pid And card_id = @cardid", conn))
+                    {
+                        cmd.Parameters.AddWithValue("pid", _pid);
+                        cmd.Parameters.AddWithValue("cardid", id.ID);
+
+                        cmd.Prepare();
+                        NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                        if(!reader.HasRows)
+                        {
+                            return false; // User does not have all cards in his stack! => Bad request!
+                        }
+                        conn.Close();
+                        conn.Open();
+                    }                    
+                }                
+            }
+            catch
+            {
+                throw;
+            }
+            // All checks have passed. User has every card in his stack.
+            return true;            
+         }
+
+        private static bool ConfigureDeck(int _pid, List<CardID>deck)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            // TO DO: Get Current Deck and save it in case of error.
+            // Then Delete Current Deck of user.
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Delete From cardindeck Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    cmd.ExecuteReader();
+                }
+            }
+            catch
+            {
+                // Restore Player`s Deck here
+                throw;
+            }
+            conn.Close();
+            conn.Open();
+            
+            try
+            {
+                foreach (CardID id in deck)
+                {
+                    using (var cmd = new NpgsqlCommand("Insert Into cardindeck(pid, card_id) Values(@pid, @cardid)", conn))
+                    {
+                        cmd.Parameters.AddWithValue("pid", _pid);
+                        cmd.Parameters.AddWithValue("cardid", id.ID);
+                        cmd.Prepare();
+                        cmd.ExecuteReader();                       
+                    }
+                    conn.Close();
+                    conn.Open();
+                }                
+            }
+            catch
+            {
+                return false;
+            }
+            return true;
+        }
+
+        private static CardInfo GetCardInfoFromID(int _cardID)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            using (var cmd = new NpgsqlCommand("Select name,type,element,damage,price From Card Where card_id = @cardid", conn))
+            {
+                cmd.Parameters.AddWithValue("cardid", _cardID);
+                cmd.Prepare();
+                NpgsqlDataReader reader = cmd.ExecuteReader();
+                
+                String name = (String)reader["name"];
+                String type = (String)reader["type"];
+                String element = (String)reader["element"];
+                int damage = (int)reader["damage"];
+                int price = (int)reader["price"];
+                var ci = new CardInfo(name, type, element, damage, price);
+                conn.Close();
+
+                return ci;
+            }
+        }
+
+        private static List<int> GetDeck(int _pid)
+        {
+            List<int> CardIDs = new List<int>();
+
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select card_id From cardinstack Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            CardIDs.Add((int)reader[i]);
+                        }
+                    }
+                }
+                return CardIDs;
+            }
+            catch
+            {
+                //throw;
+            }
+            return CardIDs;
         }
 
         private static void UpdateMsgEntrys()
