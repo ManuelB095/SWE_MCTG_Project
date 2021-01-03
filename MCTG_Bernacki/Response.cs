@@ -168,7 +168,7 @@ namespace MCTG_Bernacki
                         } while (opponent_pid <= 0 && tries < maxTries);
                         
                         // Tried to hard and got so far, in the end, it didn`t even matter - because there was no opponent.
-                        if(tries > maxTries)
+                        if(tries >= maxTries)
                         {
                             return new Response("200 OK", "text/plain", "Unfortunately, there don`t seem to be any opponents.. ");
                         }
@@ -179,16 +179,38 @@ namespace MCTG_Bernacki
 
                         // -> Get both players cardIDs while looping database function, that looks for them in CardInDeck
 
-                        List<int> playerCardIDs = new List<int>();
-                        List<int> opponentCardIDs = new List<int>();
-
-
+                        List<int> playerCardIDs = Response.GetDeck(player_pid);
+                        List<int> opponentCardIDs = Response.GetDeck(opponent_pid);
 
                         // -> Get card Information by looping database function, that gets card data for every cardID
+                        List<CardInfo> playerCardInfo = new List<CardInfo>();
+                        List<CardInfo> opponentCardInfo = new List<CardInfo>();
+
+                        for (int i=0; i<playerCardIDs.Count;i++)
+                        {
+                            playerCardInfo.Add(Response.GetCardInfoFromID(playerCardIDs[i]));
+                            opponentCardInfo.Add(Response.GetCardInfoFromID(opponentCardIDs[i]));
+                        }
+
+                        List<Card> playerDeck = new List<Card>();
+                        List<Card> opponentDeck = new List<Card>();
+
+                        for (int i = 0; i < playerCardInfo.Count; i++)
+                        {
+                            playerDeck.Add(Response.GetCardFromCardInfo(playerCardInfo[i]));
+                            opponentDeck.Add(Response.GetCardFromCardInfo(opponentCardInfo[i]));
+                        }
+
                         // -> Execute some kind of BattleHandler, that takes both Player`s Decks (List of Cards)
+
+                        BattleHandler game = new BattleHandler(playerDeck, opponentDeck);
+                        game.Battle();
+                        
                         // -> Determine Winner of Battle and (possibly) create log file.
                         // -> Send winner and log-file back to both users.
-                        // -> Change elo and stats depending on who won.                        
+                        // -> Change elo and stats depending on who won.      
+                        
+                        // Delete BattleQueue Entries for both players
 
                     }
                 }
@@ -808,7 +830,7 @@ namespace MCTG_Bernacki
                         // Choose an opponent from existing list at random
                         Random rnd = new Random();                        
                         int opponent_pid = rnd.Next(1, allOpponents.Count);
-                        return allOpponents[opponent_pid];
+                        return allOpponents[opponent_pid - 1];
                     }
                 }                
             }
@@ -1064,12 +1086,21 @@ namespace MCTG_Bernacki
                 cmd.Parameters.AddWithValue("cardid", _cardID);
                 cmd.Prepare();
                 NpgsqlDataReader reader = cmd.ExecuteReader();
+                String name = "Generic";
+                String type = "Goblin";
+                String element = "Normal";
+                int damage = 1;
+                int price = 0;
+
+                while(reader.Read())
+                {
+                    name = (String)reader["name"];
+                    type = (String)reader["type"];
+                    element = (String)reader["element"];
+                    damage = (int)reader["damage"];
+                    price = (int)reader["price"];
+                }
                 
-                String name = (String)reader["name"];
-                String type = (String)reader["type"];
-                String element = (String)reader["element"];
-                int damage = (int)reader["damage"];
-                int price = (int)reader["price"];
                 var ci = new CardInfo(name, type, element, damage, price);
                 conn.Close();
 
@@ -1107,6 +1138,55 @@ namespace MCTG_Bernacki
                 //throw;
             }
             return CardIDs;
+        }
+
+        private static Card GetCardFromCardInfo(CardInfo ci)
+        {
+            if(ci.Type.ToUpper() == "GOBLIN")            
+                return new Goblin(ci.Name,ci.Price,Response.StrtoElem(ci.Element), ci.Damage);
+            else if(ci.Type.ToUpper() == "ORC")
+                return new Orc(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+            else if (ci.Type.ToUpper() == "FIREELVE")
+                return new FireElve(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+            else if (ci.Type.ToUpper() == "DRAGON")
+                return new Dragon(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+            else if (ci.Type.ToUpper() == "KNIGHT")
+                return new Knight(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+            else if (ci.Type.ToUpper() == "KRAKEN")
+                return new Kraken(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+            else if (ci.Type.ToUpper() == "WIZZARD")
+                return new Wizzard(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+            else if (ci.Type.ToUpper() == "SPELL")
+            {
+                if(Response.StrtoElem(ci.Element) == element.NORMAL)
+                    return new NormalSpell(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+                else if(Response.StrtoElem(ci.Element) == element.WATER)
+                    return new WaterSpell(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+                else if (Response.StrtoElem(ci.Element) == element.FIRE)
+                    return new FireSpell(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+                else
+                    return new NormalSpell(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+            }
+            else
+                return new Goblin(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+        }
+
+        private static element StrtoElem(String s)
+        {
+            if (s.ToUpper() == "WATER")
+            {
+                return element.WATER;
+            }
+            else if (s.ToUpper() == "FIRE")
+            {
+                return element.FIRE;
+            }
+            else if (s.ToUpper() == "NORMAL")
+            {
+                return element.NORMAL;
+            }
+            else
+                return element.NORMAL;
         }
 
         private static void UpdateMsgEntrys()
