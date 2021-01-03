@@ -157,6 +157,7 @@ namespace MCTG_Bernacki
                         int tries = 0;
                         int maxTries = 20;
                         int opponent_pid = 0;
+                        bool wasMatched = false;
                         Console.WriteLine("\nSearching for Opponent...");
                         
                         do
@@ -164,6 +165,12 @@ namespace MCTG_Bernacki
                             System.Threading.Thread.Sleep(1000);
                             opponent_pid = Response.FindOpponentForBattle(player_pid);
                             tries++;
+
+                            if(Response.HasMatched(player_pid))
+                            {
+                                wasMatched = true;
+                                break;
+                            }
 
                         } while (opponent_pid <= 0 && tries < maxTries);
                         
@@ -177,40 +184,65 @@ namespace MCTG_Bernacki
                         Console.WriteLine("\nOpponent found!\nPlayer " + player_pid + "`s opponent is " + opponent_pid + "\n");
                         // -> Get his pid #DONE
 
-                        // -> Get both players cardIDs while looping database function, that looks for them in CardInDeck
-
-                        List<int> playerCardIDs = Response.GetDeck(player_pid);
-                        List<int> opponentCardIDs = Response.GetDeck(opponent_pid);
-
-                        // -> Get card Information by looping database function, that gets card data for every cardID
-                        List<CardInfo> playerCardInfo = new List<CardInfo>();
-                        List<CardInfo> opponentCardInfo = new List<CardInfo>();
-
-                        for (int i=0; i<playerCardIDs.Count;i++)
+                        // Make entry in MatchHistory:
+                        if(wasMatched)
                         {
-                            playerCardInfo.Add(Response.GetCardInfoFromID(playerCardIDs[i]));
-                            opponentCardInfo.Add(Response.GetCardInfoFromID(opponentCardIDs[i]));
+                            // TO DO:
+                            // -> Respond with Logfile(created inside battleHandler of other player)
+
+                            return new Response("200 OK", "text/plain", "Player 2 waits now!\n");
                         }
-
-                        List<Card> playerDeck = new List<Card>();
-                        List<Card> opponentDeck = new List<Card>();
-
-                        for (int i = 0; i < playerCardInfo.Count; i++)
+                        if(!wasMatched)
                         {
-                            playerDeck.Add(Response.GetCardFromCardInfo(playerCardInfo[i]));
-                            opponentDeck.Add(Response.GetCardFromCardInfo(opponentCardInfo[i]));
+                            // Opponent did not match you, but a suitable opponent was found.
+                            // So create Match yourself:
+                            Response.CreateMatch(player_pid, opponent_pid);
+
+                            // -> Get both players cardIDs while looping database function, that looks for them in CardInDeck
+
+                            List<int> playerCardIDs = Response.GetDeck(player_pid);
+                            List<int> opponentCardIDs = Response.GetDeck(opponent_pid);
+
+                            // -> Get card Information by looping database function, that gets card data for every cardID
+                            List<CardInfo> playerCardInfo = new List<CardInfo>();
+                            List<CardInfo> opponentCardInfo = new List<CardInfo>();
+
+                            for (int i=0; i<playerCardIDs.Count;i++)
+                            {
+                                playerCardInfo.Add(Response.GetCardInfoFromID(playerCardIDs[i]));
+                                opponentCardInfo.Add(Response.GetCardInfoFromID(opponentCardIDs[i]));
+                            }
+
+                            List<Card> playerDeck = new List<Card>();
+                            List<Card> opponentDeck = new List<Card>();
+
+                            for (int i = 0; i < playerCardInfo.Count; i++)
+                            {
+                                playerDeck.Add(Response.GetCardFromCardInfo(playerCardInfo[i]));
+                                opponentDeck.Add(Response.GetCardFromCardInfo(opponentCardInfo[i]));
+                            }
+
+                            // -> Execute some kind of BattleHandler, that takes both Player`s Decks (List of Cards)
+                            // BattleHandler writes Battle to log file.
+
+                            BattleHandler game = new BattleHandler(playerDeck, opponentDeck);
+                            int winner = game.Battle();
+
+                            // TO DO:
+                            // -> Send logfile to player (created inside BattleHandler)
+                            // -> Change elo and stats depending on who won (for both!)
+                            // -> Exchange cards with opponent 
+                            // (if opponent does not have card; otherwise he/she gets coins instead)
+
+                            // Update MatchHistory entry
+                            Response.UpdateMatchHistory(player_pid, opponent_pid, winner, 10);
+
+                            // Delete BattleQueue Entries for both players
+                            Response.DeleteFromQueue(player_pid, opponent_pid);
+
+                            return new Response("200 OK", "text/plain", "Player 1 has finished processing!\n");
                         }
-
-                        // -> Execute some kind of BattleHandler, that takes both Player`s Decks (List of Cards)
-
-                        BattleHandler game = new BattleHandler(playerDeck, opponentDeck);
-                        game.Battle();
                         
-                        // -> Determine Winner of Battle and (possibly) create log file.
-                        // -> Send winner and log-file back to both users.
-                        // -> Change elo and stats depending on who won.      
-                        
-                        // Delete BattleQueue Entries for both players
 
                     }
                 }
@@ -221,9 +253,13 @@ namespace MCTG_Bernacki
                     Debug.WriteLine(ui.Username);
                     Debug.WriteLine(ui.Password);                    
 
-                    if (Response.CreateUser(ui.Username, ui.Password) == true)
+                    if (Response.CreateUser(ui.Username, ui.Password) == true && !(Response.UserExists(ui.Username)))
                     {
                         return new Response("200 OK", "text/plain", "Successfully created User: " + ui.Username);
+                    }
+                    else if(Response.UserExists(ui.Username))
+                    {
+                        return new Response("200 OK", "text/plain", "Username " + ui.Username + " already exists.\nPlease choose another\n");
                     }
                     else
                     {
@@ -234,7 +270,8 @@ namespace MCTG_Bernacki
 
                 else if(request.URL == "/cards")
                 {
-                    if (Response.TokenIsValid(request.Header["Authorization"]))
+                    int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
+                    if (Response.TokenIsValid(request.Header["Authorization"]) && Response.UserIsAdmin(uid))
                     {
                         CardInfo ci = JsonConvert.DeserializeObject<CardInfo>(request.Payload);
                         if (Response.CreateCard(ci.Name, ci.Type, ci.Element, ci.Damage, ci.Price) == true)
@@ -282,7 +319,8 @@ namespace MCTG_Bernacki
 
                 else if(request.URL == "/packages")
                 {
-                    if (Response.TokenIsValid(request.Header["Authorization"]))
+                    int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
+                    if (Response.TokenIsValid(request.Header["Authorization"]) && Response.UserIsAdmin(uid))
                     {
                         List<CardID> cd = JsonConvert.DeserializeObject<List<CardID>>(request.Payload);                   
                         if(Response.CreatePackage(cd) == true)
@@ -1169,6 +1207,173 @@ namespace MCTG_Bernacki
             }
             else
                 return new Goblin(ci.Name, ci.Price, Response.StrtoElem(ci.Element), ci.Damage);
+        }
+
+        private static void DeleteFromQueue(int pl1ID, int pl2ID)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();            
+
+            try
+            {               
+                using (var cmd = new NpgsqlCommand("Delete From battlequeue Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", pl1ID);
+                    cmd.Prepare();
+                    cmd.ExecuteReader();
+                }
+                conn.Close();
+                conn.Open();
+                using (var cmd = new NpgsqlCommand("Delete From battlequeue Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", pl2ID);
+                    cmd.Prepare();
+                    cmd.ExecuteReader();
+                }
+            }
+            catch
+            {               
+                throw;
+            }
+        }
+
+        private static bool UserExists(String _username)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select * From Users Where username = @username", conn))
+                {
+                    cmd.Parameters.AddWithValue("username", _username);                    
+
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        if (reader.HasRows)
+                            return true;
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static void CreateMatch(int playerID, int opponentID)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Insert Into MatchHistory(playeroneid,playertwoid,status,matchdate) Values(@pidOne,@pidTwo,@status,@date)", conn))
+                {
+                    cmd.Parameters.AddWithValue("pidOne", playerID);
+                    cmd.Parameters.AddWithValue("pidTwo", opponentID);
+                    cmd.Parameters.AddWithValue("status", "Running");
+                    cmd.Parameters.AddWithValue("date", DateTime.Now);
+
+                    cmd.Prepare();
+                    cmd.ExecuteReader();
+                }
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static bool HasMatched(int playerID)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select * From matchhistory Where (playeroneid = @pid Or playertwoid = @pid) And status = @status", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", playerID);
+                    cmd.Parameters.AddWithValue("status", "Running");
+
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while(reader.Read())
+                    {
+                        if(reader.HasRows)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static void UpdateMatchHistory(int playerID, int opponentID, int winner, int rounds)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Update matchhistory Set status = @poststatus, winner = @winner, rounds = @rounds Where playeroneid = @pidOne And status = @prestatus", conn))
+                {
+                    cmd.Parameters.AddWithValue("poststatus", "Done");
+                    cmd.Parameters.AddWithValue("winner", winner);
+                    cmd.Parameters.AddWithValue("rounds", rounds);
+                    cmd.Parameters.AddWithValue("pidOne", playerID);
+                    cmd.Parameters.AddWithValue("prestatus", "Running");
+
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static bool UserIsAdmin(int _uid)
+        {
+            int result = 0;
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select admin From Users Where uid = @uid", conn))
+                {
+                    cmd.Parameters.AddWithValue("uid", _uid);                    
+
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+                    
+                    while (reader.Read())
+                    {
+                        result = (int)reader["admin"];
+                    }                    
+                }
+                if (result == 1)
+                    return true;
+                else
+                    return false;
+            }
+            catch
+            {
+                throw;
+            }
         }
 
         private static element StrtoElem(String s)

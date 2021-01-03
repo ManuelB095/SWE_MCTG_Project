@@ -16,11 +16,18 @@ namespace MCTG_Bernacki
             this.DeckPlTwo = deckTwo;
         }
 
-        public bool Battle()
+        public int Battle()
         {
             Console.WriteLine("Works up till here");
-            return true;
+            return 1;
 
+            // TO DO:
+            // -> Battle Logic ( Rounds, Max Rounds, Damage between Cards etc.
+            // -> Determine Winner And/or Round Limit overriden => Draw
+            // -> Return:
+            // -> -> Winner
+            // -> -> Rounds played
+            // -> Make Log File of everything, that was going on and save it locally!
 
 
 

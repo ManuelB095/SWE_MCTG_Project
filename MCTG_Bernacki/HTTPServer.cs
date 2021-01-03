@@ -52,16 +52,21 @@ namespace MCTG_Bernacki
 
                 Console.WriteLine("Client Connected");
 
-                HandleClient(client);
+                Thread t = new Thread(new ParameterizedThreadStart(HandleClient));
+                t.Start(client);
 
-                client.Close();
+                //HandleClient(client);
+
+                //client.Close();
             }
             running = false;
             listener.Stop();            
         }
 
-        public void HandleClient(IMyTcpClient client)
+        public void HandleClient(Object obj)
         {
+            IMyTcpClient client = (IMyTcpClient)obj;
+        
             StreamReader reader = new StreamReader(client.GetStream());
             String msg = "";
             while(reader.Peek() != -1)
@@ -73,6 +78,7 @@ namespace MCTG_Bernacki
             this.Request = Request.GetRequest(msg);
             this.Response = Response.From(this.Request);
             this.Response.Post(client.GetStream());
+            client.Close();
         }
 
     }
