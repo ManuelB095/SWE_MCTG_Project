@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Npgsql;
@@ -15,6 +16,7 @@ namespace MCTG_Bernacki
         private String status;
         private String mimeType;
         private String message;
+        private static Mutex mutex = new Mutex();
 
         public const String EnvironmentPath = @"C:\Users\mbern\" +
         @"Downloads\FH-Stuff\3.Semester\SWE\MCTG\MCTG_Bernacki\bin\Debug\netcoreapp3.1";
@@ -148,102 +150,84 @@ namespace MCTG_Bernacki
                 {
                     if(Response.TokenIsValid(request.Header["Authorization"]))
                     {
-                        // TO DO: 
                         // First things first, place entry in BattleRequests.
                         int player_pid = Response.GetUIDFromToken(request.Header["Authorization"]);
                         Response.PlaceBattleRequest(player_pid);
 
-                        // Then try to find opponent from BattleQueue:
-                        int tries = 0;
-                        int maxTries = 20;
-                        int opponent_pid = 0;
-                        bool wasMatched = false;
+                        // Make an ID for possible Match:
+                        int matchID = Response.GetMatchID();
+
                         Console.WriteLine("\nSearching for Opponent...");
-                        
-                        do
-                        {                            
-                            System.Threading.Thread.Sleep(1000);
-                            opponent_pid = Response.FindOpponentForBattle(player_pid);
-                            tries++;
 
-                            if(Response.HasMatched(player_pid))
+                        // Then try to find opponent from BattleQueue:                        
+
+                        // MUTEX LOCK HERE!
+                        mutex.WaitOne();
+                        bool match_running = Response.HasMatched(matchID); // If != -1 : Another thread has already matched and battles!
+                        
+                        if(match_running == false) // No match running yet => Search For Opponents and create one!
+                        {
+                            int tries = 0;
+                            int maxTries = 100;
+                            int opponent_pid = -1;
+
+                            System.Threading.Thread.Sleep(12000); // Opponent (Me) needs a little time (12s) to send second BattleRequest!
+
+                            do
                             {
-                                wasMatched = true;
-                                break;
+                                opponent_pid = Response.FindOpponentForBattle(player_pid);
+                                tries++;
+                            } while (opponent_pid <= 0 && tries < maxTries);
+
+                            if (tries >= maxTries) // => Opponent Not Found
+                            {
+                                mutex.ReleaseMutex();
+                                Response.DeleteFromQueue(player_pid, player_pid);
+                                return new Response("200 OK", "text/plain", "Unfortunately, there don`t seem to be any opponents.. ");
                             }
 
-                        } while (opponent_pid <= 0 && tries < maxTries);
-                        
-                        // Tried to hard and got so far, in the end, it didn`t even matter - because there was no opponent.
-                        if(tries >= maxTries)
-                        {
-                            return new Response("200 OK", "text/plain", "Unfortunately, there don`t seem to be any opponents.. ");
-                        }
-                        // Opponent was found (return > 0): 
-                        
-                        Console.WriteLine("\nOpponent found!\nPlayer " + player_pid + "`s opponent is " + opponent_pid + "\n");
-                        // -> Get his pid #DONE
-
-                        // Make entry in MatchHistory:
-                        if(wasMatched)
-                        {
-                            // TO DO:
-                            // -> Respond with Logfile(created inside battleHandler of other player)
-
-                            return new Response("200 OK", "text/plain", "Player 2 waits now!\n");
-                        }
-                        if(!wasMatched)
-                        {
-                            // Opponent did not match you, but a suitable opponent was found.
-                            // So create Match yourself:
-                            Response.CreateMatch(player_pid, opponent_pid);
-
-                            // -> Get both players cardIDs while looping database function, that looks for them in CardInDeck
-
-                            List<int> playerCardIDs = Response.GetDeck(player_pid);
-                            List<int> opponentCardIDs = Response.GetDeck(opponent_pid);
-
-                            // -> Get card Information by looping database function, that gets card data for every cardID
-                            List<CardInfo> playerCardInfo = new List<CardInfo>();
-                            List<CardInfo> opponentCardInfo = new List<CardInfo>();
-
-                            for (int i=0; i<playerCardIDs.Count;i++)
+                            if(opponent_pid != -1) // => Opponent Found
                             {
-                                playerCardInfo.Add(Response.GetCardInfoFromID(playerCardIDs[i]));
-                                opponentCardInfo.Add(Response.GetCardInfoFromID(opponentCardIDs[i]));
+                                Console.WriteLine("\nOpponent found!\nPlayer " + player_pid + "`s opponent is " + opponent_pid + "\n");
+                                DateTime matchTime = DateTime.Now;
+                                Response.CreateMatch(matchID, player_pid, opponent_pid, matchTime);                                
+
+                                List<Card> playerDeck = Response.PrepareDeck(player_pid);
+                                List<Card> opponentDeck = Response.PrepareDeck(opponent_pid);                                
+
+                                BattleHandler game = new BattleHandler(playerDeck, opponentDeck);
+                                int winner = game.Battle();
+                                List<String> battleLogs = game.ReturnLogs();
+                                Response.WriteLogsToFile(battleLogs, matchTime);
+
+                                // Response String for Player One
+                                String battleResult = "";
+                                foreach (String s in battleLogs)
+                                {
+                                    battleResult += s;
+                                }
+                                battleResult += "\n";
+
+                                // Update MatchHistory entry
+                                Response.UpdateMatchHistory(player_pid, opponent_pid, winner, 10);
+
+                                // Delete BattleQueue Entries for both players
+                                Response.DeleteFromQueue(player_pid, opponent_pid);
+
+                                mutex.ReleaseMutex();
+                                return new Response("200 OK", "text/plain", battleResult);
                             }
 
-                            List<Card> playerDeck = new List<Card>();
-                            List<Card> opponentDeck = new List<Card>();
-
-                            for (int i = 0; i < playerCardInfo.Count; i++)
-                            {
-                                playerDeck.Add(Response.GetCardFromCardInfo(playerCardInfo[i]));
-                                opponentDeck.Add(Response.GetCardFromCardInfo(opponentCardInfo[i]));
-                            }
-
-                            // -> Execute some kind of BattleHandler, that takes both Player`s Decks (List of Cards)
-                            // BattleHandler writes Battle to log file.
-
-                            BattleHandler game = new BattleHandler(playerDeck, opponentDeck);
-                            int winner = game.Battle();
-
-                            // TO DO:
-                            // -> Send logfile to player (created inside BattleHandler)
-                            // -> Change elo and stats depending on who won (for both!)
-                            // -> Exchange cards with opponent 
-                            // (if opponent does not have card; otherwise he/she gets coins instead)
-
-                            // Update MatchHistory entry
-                            Response.UpdateMatchHistory(player_pid, opponent_pid, winner, 10);
-
-                            // Delete BattleQueue Entries for both players
-                            Response.DeleteFromQueue(player_pid, opponent_pid);
-
-                            return new Response("200 OK", "text/plain", "Player 1 has finished processing!\n");
-                        }
-                        
-
+                        }  
+                        else if(match_running == true) //Someone has taken up the offer and run the match! => Retrieve the data!
+                        {
+                            Response.DeleteFromQueue(player_pid, player_pid);
+                            DateTime time = Response.GetMatchDateFromID(matchID);
+                            String logName = time.ToString("yyyy-dd-M--HH-mm-ss");
+                            String logContent = Response.ReadLogsFromFile(logName);
+                            mutex.ReleaseMutex();
+                            return new Response("200 OK", "text/plain", logContent);
+                        }  
                     }
                 }
 
@@ -1265,19 +1249,20 @@ namespace MCTG_Bernacki
             }
         }
 
-        private static void CreateMatch(int playerID, int opponentID)
+        private static void CreateMatch(int matchID, int playerID, int opponentID, DateTime matchTime)
         {
             using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
             conn.Open();
 
             try
             {
-                using (var cmd = new NpgsqlCommand("Insert Into MatchHistory(playeroneid,playertwoid,status,matchdate) Values(@pidOne,@pidTwo,@status,@date)", conn))
+                using (var cmd = new NpgsqlCommand("Insert Into MatchHistory(match_id,playeroneid,playertwoid,status,matchdate) Values(@matchid,@pidOne,@pidTwo,@status,@date)", conn))
                 {
+                    cmd.Parameters.AddWithValue("matchid", matchID);
                     cmd.Parameters.AddWithValue("pidOne", playerID);
                     cmd.Parameters.AddWithValue("pidTwo", opponentID);
                     cmd.Parameters.AddWithValue("status", "Running");
-                    cmd.Parameters.AddWithValue("date", DateTime.Now);
+                    cmd.Parameters.AddWithValue("date", matchTime);
 
                     cmd.Prepare();
                     cmd.ExecuteReader();
@@ -1289,30 +1274,135 @@ namespace MCTG_Bernacki
             }
         }
 
-        private static bool HasMatched(int playerID)
+        private static int GetMatchID()
         {
             using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
             conn.Open();
 
             try
             {
-                using (var cmd = new NpgsqlCommand("Select * From matchhistory Where (playeroneid = @pid Or playertwoid = @pid) And status = @status", conn))
+                using (var cmd = new NpgsqlCommand("Select max(match_id) As result From matchhistory", conn))
                 {
-                    cmd.Parameters.AddWithValue("pid", playerID);
-                    cmd.Parameters.AddWithValue("status", "Running");
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        int newID = (int)reader["result"];
+                        newID += 1;
+                        return newID;
+                    }
+                }
+                return -1; // In case something went horribly wrong..
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static String ReadLogsFromFile(String filename)
+        {
+            String f = EnvironmentPath + HTTPServer.LOG_DIR + "\\" + filename + ".log";
+            FileInfo file = new FileInfo(f);
+            String logString = "";
+
+            if (file.Exists && file.Extension.Contains(".log"))
+            {
+                Debug.WriteLine(file.FullName);
+                Debug.WriteLine(file.Name);
+                using (StreamReader fi = File.OpenText(@file.FullName))
+                {
+                    logString = fi.ReadToEnd();
+                }
+            }
+            return logString;
+        }
+
+        private static void WriteLogsToFile(List<String>logs, DateTime matchTime)
+        {
+            String dirPath = EnvironmentPath + HTTPServer.LOG_DIR;
+            DirectoryInfo dif = new DirectoryInfo(dirPath);
+            FileInfo[] files = dif.GetFiles();
+
+            String newFilename = matchTime.ToString("yyyy-dd-M--HH-mm-ss"); ;
+            newFilename += ".log";
+
+            using (StreamWriter tw = new StreamWriter(@dirPath + "\\" + newFilename))
+            {
+                foreach (String s in logs)
+                    tw.WriteLine(s);
+            }
+        }        
+
+        private static bool HasMatched(int matchID)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select * From matchhistory Where match_id = @matchid", conn))
+                {
+                    cmd.Parameters.AddWithValue("matchid", matchID);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while(reader.HasRows)
+                    {
+                        return true;
+                    }
+                }
+                return false; // Match does not yet exist!
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static List<Card> PrepareDeck(int pid)
+        {
+            // -> Get both players cardIDs while looping database function, that looks for them in CardInDeck
+            List<int> CardIDs = Response.GetDeck(pid);
+
+            // -> Get card Information by looping database function, that gets card data for every cardID
+            List<CardInfo> CardInfo = new List<CardInfo>();
+
+            for (int i = 0; i < CardIDs.Count; i++)
+            {
+                CardInfo.Add(Response.GetCardInfoFromID(CardIDs[i]));
+            }
+
+            List<Card> Deck = new List<Card>();
+
+            for (int i = 0; i < CardInfo.Count; i++)
+            {
+                Deck.Add(Response.GetCardFromCardInfo(CardInfo[i]));                
+            }
+            return Deck;
+        }
+
+        private static DateTime GetMatchDateFromID(int _matchID)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select matchdate From matchhistory Where match_id = @matchid", conn))
+                {
+                    cmd.Parameters.AddWithValue("matchid", _matchID);
 
                     cmd.Prepare();
                     NpgsqlDataReader reader = cmd.ExecuteReader();
 
-                    while(reader.Read())
+                    while (reader.Read())
                     {
-                        if(reader.HasRows)
-                        {
-                            return true;
-                        }
+                        return (DateTime)reader["matchdate"]; ;
                     }
                 }
-                return false;
+                return DateTime.Now.AddDays(-1);
             }
             catch
             {

@@ -45,7 +45,7 @@ namespace MCTG_Bernacki_UnitTests
             FireElve elfi = new FireElve();
             Dragon smaug = new Dragon();
             //Act
-            int enemyDamage = elfi.CalcEnemyDamage(smaug);
+            int enemyDamage = smaug.CalcDamage(elfi);
             int expectedDamage = 0;
             //Assert
             Assert.AreEqual(expectedDamage, enemyDamage);

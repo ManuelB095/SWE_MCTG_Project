@@ -28,12 +28,7 @@ namespace MCTG_Bernacki
             }
             else if (enemy is SpellCard)
             {
-                if (enemy.Element == element.FIRE) // Goblins are weak agains FIRE
-                    return (int)Math.Floor((double)this.Damage / 2); // double bc otherwise ambiguous
-                if (enemy.Element == element.WATER) // Goblins are strong against WATER
-                    return this.Damage * 2;
-                else
-                    return this.Damage;
+                return this.CalcDamageVsSpells(enemy);
             }
             return -1; // Throw error instead ?
         }

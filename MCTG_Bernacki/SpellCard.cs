@@ -13,6 +13,11 @@ namespace MCTG_Bernacki
 
         public override int CalcDamage(Card enemy)
         {
+            if(enemy is Kraken)
+            {
+                return 0;
+            }
+
             if (this.Element == element.WATER)
             {
                 if (enemy.Element == element.FIRE)
@@ -42,6 +47,6 @@ namespace MCTG_Bernacki
                     return this.Damage;
             }            
             return -1; // Some Error Occurred.
-        }
+        }               
     }
 }

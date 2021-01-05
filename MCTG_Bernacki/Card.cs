@@ -69,7 +69,45 @@ namespace MCTG_Bernacki
         }
         public virtual int CalcEnemyDamage(Card enemy)
         {
-            return enemy.Damage;
+            if (enemy is MonsterCard)
+                return enemy.Damage;
+            else if (enemy is SpellCard)
+                return enemy.CalcDamageVsSpells(this);
+            else
+                return enemy.Damage;
+        }
+
+        public virtual int CalcDamageVsSpells(Card enemy)
+        {
+            if (this.Element == element.WATER)
+            {
+                if (enemy.Element == element.FIRE)
+                    return this.Damage * 2;
+                else if (enemy.Element == element.NORMAL)
+                    return (int)Math.Floor((double)this.Damage / 2);
+                else
+                    return this.Damage;
+
+            }
+            else if (this.Element == element.FIRE)
+            {
+                if (enemy.Element == element.NORMAL)
+                    return this.Damage * 2;
+                else if (enemy.Element == element.WATER)
+                    return (int)Math.Floor((double)this.Damage / 2);
+                else
+                    return this.Damage;
+            }
+            else if (this.Element == element.NORMAL)
+            {
+                if (enemy.Element == element.WATER)
+                    return this.Damage * 2;
+                else if (enemy.Element == element.FIRE)
+                    return (int)Math.Floor((double)this.Damage / 2);
+                else
+                    return this.Damage;
+            }
+            return -1; // Some Error Occurred.
         }
     }
 }

@@ -15,6 +15,7 @@ namespace MCTG_Bernacki
         private bool running = false;
         public const String MSG_DIR = "/root/messages";
         public const String STAT_DIR = "/root/statcodes";
+        public const String LOG_DIR = "/root/logs";
         public const String TOK_DIR = "/root/tokens";
         public const String VERSION = "HTTP/1.1";
         public const String NAME = "Manuel`s HTTP Server";
@@ -34,8 +35,9 @@ namespace MCTG_Bernacki
 
         public void Start()
         {
-            Thread serverThread = new Thread(new ThreadStart(Run));
-            serverThread.Start();
+            //Thread serverThread = new Thread(new ThreadStart(Run));
+            //serverThread.Start();   
+            this.Run();
         }
 
         private void Run()

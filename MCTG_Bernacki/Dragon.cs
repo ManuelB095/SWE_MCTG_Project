@@ -20,18 +20,17 @@ namespace MCTG_Bernacki
 
         public override int CalcDamage(Card enemy)
         {
-            if (enemy is MonsterCard)
+            if(enemy is FireElve)
+            {
+                return 0;
+            }
+            else if (enemy is MonsterCard)
             {
                 return this.Damage;
             }
             else if (enemy is SpellCard)
             {
-                if (enemy.Element == element.WATER) // Dragons are weak agains WATER
-                    return (int) Math.Floor((double)this.Damage/2); // double bc otherwise ambiguous
-                if (enemy.Element == element.NORMAL) // Dragons are strong agains NORMAL
-                    return this.Damage * 2;
-                else
-                    return this.Damage;
+                return this.CalcDamageVsSpells(enemy);
             }
             return -1; // Throw error instead ?
         }

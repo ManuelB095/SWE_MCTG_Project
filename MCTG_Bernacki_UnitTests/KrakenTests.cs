@@ -84,7 +84,7 @@ namespace MCTG_Bernacki_UnitTests
             Kraken leviathan = new Kraken();
             NormalSpell enemySpell = new NormalSpell();
             //Act
-            int enemyDamage = leviathan.CalcEnemyDamage(enemySpell);
+            int enemyDamage = enemySpell.CalcDamage(leviathan);
             int expectedDamage = 0;
             //Assert
             Assert.AreEqual(expectedDamage, enemyDamage);
@@ -97,7 +97,7 @@ namespace MCTG_Bernacki_UnitTests
             Kraken leviathan = new Kraken();
             WaterSpell enemySpell = new WaterSpell();
             //Act
-            int enemyDamage = leviathan.CalcEnemyDamage(enemySpell);
+            int enemyDamage = enemySpell.CalcDamage(leviathan);
             int expectedDamage = 0;
             //Assert
             Assert.AreEqual(expectedDamage, enemyDamage);
@@ -110,7 +110,7 @@ namespace MCTG_Bernacki_UnitTests
             Kraken leviathan = new Kraken();
             FireSpell enemySpell = new FireSpell();
             //Act
-            int enemyDamage = leviathan.CalcEnemyDamage(enemySpell);
+            int enemyDamage = enemySpell.CalcDamage(leviathan);
             int expectedDamage = 0;
             //Assert
             Assert.AreEqual(expectedDamage, enemyDamage);

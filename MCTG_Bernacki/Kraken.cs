@@ -20,28 +20,14 @@ namespace MCTG_Bernacki
         public override int CalcDamage(Card enemy)
         {
             if (enemy is MonsterCard)
-            {
-                if (enemy is Dragon) // Goblin`s are afraid of Dragons !
-                    return 0;
-                else
-                    return this.Damage;
+            {                
+                return this.Damage;
             }
             else if (enemy is SpellCard)
             {
-                return this.Damage;
+                return this.CalcDamageVsSpells(enemy);
             }
             return -1; // Throw error instead ?
-        }
-
-        public override int CalcEnemyDamage(Card enemy)
-        {
-            if (enemy is SpellCard) // Kraken is immune to Spell Cards.
-            {
-                return 0;
-            }
-            else
-                return enemy.Damage;
-        }
-
+        }       
     }
 }

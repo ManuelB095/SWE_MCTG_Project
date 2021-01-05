@@ -25,22 +25,9 @@ namespace MCTG_Bernacki
             }
             else if (enemy is SpellCard)
             {
-                if (enemy.Element == element.WATER)
-                    return (int)Math.Floor((double)this.Damage / 2.0);
-                else if (enemy.Element == element.NORMAL)
-                    return this.Damage * 2;
-                else
-                    return this.Damage;
+                return this.CalcDamageVsSpells(enemy);
             }
             return -1; // Throw error instead ?
-        }
-
-        public override int CalcEnemyDamage(Card enemy)
-        {
-            if (enemy is Dragon) // FireElves evade dragon attacks
-                return 0;
-            else
-                return enemy.Damage;
-        }
+        }        
     }
 }

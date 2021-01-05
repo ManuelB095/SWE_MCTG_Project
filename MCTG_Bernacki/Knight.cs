@@ -16,7 +16,40 @@ namespace MCTG_Bernacki
         {
 
         }
-        
+        public override int CalcDamageVsSpells(Card enemy)
+        {
+            if(enemy.Element == element.WATER)
+            {
+                return 0;
+            }
+
+            if (this.Element == element.WATER)
+            {
+                if (enemy.Element == element.FIRE)
+                    return this.Damage * 2;
+                else if (enemy.Element == element.NORMAL)
+                    return (int)Math.Floor((double)this.Damage / 2);               
+                else
+                    return this.Damage;
+
+            }
+            else if (this.Element == element.FIRE)
+            {
+                if (enemy.Element == element.NORMAL)
+                    return this.Damage * 2;                
+                else
+                    return this.Damage;
+            }
+            else if (this.Element == element.NORMAL)
+            {
+                if (enemy.Element == element.FIRE)
+                    return (int)Math.Floor((double)this.Damage / 2);
+                else
+                    return this.Damage;
+            }
+            return -1; // Some Error Occurred.
+        }
+
         public override int CalcDamage(Card enemy)
         {
             if (enemy is MonsterCard)
@@ -25,12 +58,7 @@ namespace MCTG_Bernacki
             }
             else if (enemy is SpellCard)
             {
-                if (enemy.Element == element.WATER) // Knights drown in WATER
-                    return 0;
-                else if (enemy.Element == element.FIRE)
-                    return (int)Math.Floor((double)this.Damage/2);
-                else
-                    return this.Damage;
+                return this.CalcDamageVsSpells(enemy);
             }
             return -1; // Throw error instead ?
         }
