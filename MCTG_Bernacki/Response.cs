@@ -52,16 +52,23 @@ namespace MCTG_Bernacki
             {
                 if(request.URL == "/cards")
                 {
+                    if(!request.Header.ContainsKey("Authorization"))
+                    {
+                        Response badRes = Response.MakeBadRequest();
+                        return badRes;
+                    }
+
                     if (Response.TokenIsValid(request.Header["Authorization"]))
                     {
                         int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
-                        List<int> CardIDs = Response.GetStack(uid);
-                        if(CardIDs.Count > 0)
+                        List<Card> deck = Response.PrepareStack(uid);
+
+                        if (deck.Count > 0)
                         {
-                            String msg = "You have the following Cards(ID): ";
-                            foreach(int id in CardIDs)
+                            String msg = "\nYou have the following Cards(ID) in your Posession: \n";
+                            foreach (Card cd in deck)
                             {
-                                msg += "\n" + id;
+                                msg += "\n" + cd.Name + "| Element: " + cd.Element.ToString() + "| Dmg: " + cd.Damage + "| Card-Price: " + cd.Price;
                             }
                             return new Response("200 OK", "text/plain", msg);
 
@@ -69,18 +76,57 @@ namespace MCTG_Bernacki
                     }
                     return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
                 }
+                else if(request.URL == "/stats")
+                {
+                    if (!request.Header.ContainsKey("Authorization"))
+                    {
+                        Response badRes = Response.MakeBadRequest();
+                        return badRes;
+                    }
+
+                    if (Response.TokenIsValid(request.Header["Authorization"]))
+                    {
+                        int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
+                        String username = Response.GetUsernameFromUID(uid);
+                        Dictionary<String, int> stats = Response.GetPlayerStats(uid);
+                        int gamesPlayed = stats["wins"] + stats["losses"] + stats["draws"];
+
+                        String statString = "\nPlayer-ID: ";
+                        statString += uid;
+                        statString += " with Username: " + username + "`s Stats are:\n";
+                        statString += "Elo-Rating: " + stats["elo"] + "\n";
+                        statString += "Wins: " + stats["wins"] + "\n";
+                        statString += "Losses: " + stats["losses"] + "\n";
+                        statString += "Draws: " + stats["draws"] + "\n";
+                        statString += "Games Played: " + gamesPlayed + "\n";
+                        statString += "Longest Winstreak: " + stats["winstreak"] + "\n";
+
+                        statString += "\nLeaderboard-Position: " + Response.GetLeaderboardPos(uid) + "\n";
+
+                        return new Response("200 OK", "text/plain", statString);
+                    }
+                    return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
+                }
+
                 else if(request.URL == "/deck")
                 {
+                    if (!request.Header.ContainsKey("Authorization"))
+                    {
+                        Response badRes = Response.MakeBadRequest();
+                        return badRes;
+                    }
+
                     if (Response.TokenIsValid(request.Header["Authorization"]))
                     {
                         int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
-                        List<int> CardIDs = Response.GetDeck(uid);
-                        if (CardIDs.Count > 0)
+                        List<Card> deck = Response.PrepareDeck(uid);
+                        
+                        if (deck.Count > 0)
                         {
-                            String msg = "You have the following Cards(ID) in your Deck: ";
-                            foreach (int id in CardIDs)
+                            String msg = "\nYou have the following Cards(ID) in your Deck: \n";
+                            foreach (Card cd in deck)
                             {
-                                msg += "\n" + id;
+                                msg += "\n" + cd.Name + "| Element: " + cd.Element.ToString() + "| Dmg: " + cd.Damage + "| Card-Price: " + cd.Price;
                             }
                             return new Response("200 OK", "text/plain", msg);
 
@@ -88,10 +134,6 @@ namespace MCTG_Bernacki
                     }
                     return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
                 }
-
-
-
-
 
                 else if(request.URL == "/messages")
                 {
@@ -148,7 +190,13 @@ namespace MCTG_Bernacki
 
                 else if(request.URL == "/battles")
                 {
-                    if(Response.TokenIsValid(request.Header["Authorization"]))
+                    if (!request.Header.ContainsKey("Authorization"))
+                    {
+                        Response badRes = Response.MakeBadRequest();
+                        return badRes;
+                    }
+
+                    if (Response.TokenIsValid(request.Header["Authorization"]))
                     {
                         // First things first, place entry in BattleRequests.
                         int player_pid = Response.GetUIDFromToken(request.Header["Authorization"]);
@@ -209,10 +257,34 @@ namespace MCTG_Bernacki
                                 battleResult += "\n";
 
                                 // Update MatchHistory entry
-                                Response.UpdateMatchHistory(player_pid, opponent_pid, winner, 10);
+                                Response.UpdateMatchHistory(player_pid, opponent_pid, winner, game.Rounds);
 
                                 // Delete BattleQueue Entries for both players
                                 Response.DeleteFromQueue(player_pid, opponent_pid);
+
+                                // Update Elo and Scoreboard for both players
+                                if(winner == 1)
+                                {
+                                    Response.UpdateEloRating(player_pid, '+', 3);
+                                    Response.UpdateEloRating(opponent_pid, '-', 5);
+                                    Response.UpdateWinnerScoreboard(player_pid);
+                                    Response.UpdateLoserScoreboard(opponent_pid);
+                                }
+                                else if(winner == 2)
+                                {
+                                    Response.UpdateEloRating(opponent_pid, '+', 3);
+                                    Response.UpdateEloRating(player_pid, '-', 5);
+                                    Response.UpdateWinnerScoreboard(opponent_pid);
+                                    Response.UpdateLoserScoreboard(player_pid);
+                                }
+                                else
+                                {
+                                    Response.UpdateDrawScoreboard(player_pid);
+                                    Response.UpdateDrawScoreboard(opponent_pid);
+                                }
+
+                                
+
 
                                 mutex.ReleaseMutex();
                                 return new Response("200 OK", "text/plain", battleResult);
@@ -279,10 +351,24 @@ namespace MCTG_Bernacki
 
                 else if(request.URL == "/transactions/packages")
                 {
-                    if(Response.TokenIsValid(request.Header["Authorization"]))
+                    if (!request.Header.ContainsKey("Authorization"))
+                    {
+                        Response badRes = Response.MakeBadRequest();
+                        return badRes;
+                    }
+
+                    if (Response.TokenIsValid(request.Header["Authorization"]))
                     {
                         int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
-                        if(Response.BuyPackage(uid,11))
+
+                        // Random Chance, which package the user is gonna get:
+                        int pckgToBuy = Response.ChooseRandomPackage();
+                        if(pckgToBuy == -1)
+                        {
+                            return new Response("200 OK", "text/plain", "No packages available!");
+                        }
+
+                        if (Response.BuyPackage(uid,pckgToBuy))
                         {
                             return new Response("200 OK", "text/plain", "You bought a package!");
                         }
@@ -292,17 +378,14 @@ namespace MCTG_Bernacki
                     return new Response("200 OK", "text/plain", "Invalid Login-Token. Please login first!");
                 }
 
-
-
-
-
-
-
-
-
-
                 else if(request.URL == "/packages")
                 {
+                    if (!request.Header.ContainsKey("Authorization"))
+                    {
+                        Response badRes = Response.MakeBadRequest();
+                        return badRes;
+                    }
+
                     int uid = Response.GetUIDFromToken(request.Header["Authorization"]);
                     if (Response.TokenIsValid(request.Header["Authorization"]) && Response.UserIsAdmin(uid))
                     {
@@ -319,8 +402,8 @@ namespace MCTG_Bernacki
                     }
                     else
                     {
-                        Response badRequest = Response.MakeBadRequest();
-                        return badRequest;
+                        Response badLogin = Response.MakeBadLogin();
+                        return badLogin;
                     }
                 }
 
@@ -356,15 +439,26 @@ namespace MCTG_Bernacki
             }
             else if (request.Type == "PUT")
             {
+
                 if(request.URL == "/deck")
                 {
+                    if (!request.Header.ContainsKey("Authorization"))
+                    {
+                        Response badRes = Response.MakeBadRequest();
+                        return badRes;
+                    }
+
                     int deckSize = 5;
                     if(Response.TokenIsValid(request.Header["Authorization"]))
                     {
                         int pid = Response.GetUIDFromToken(request.Header["Authorization"]);
                         List<CardID>deck = JsonConvert.DeserializeObject<List<CardID>>(request.Payload);
-                        Debug.WriteLine(deck.Count);
-                        if(Response.CheckIfCardsInStack(pid, deck) == true && deck.Count == deckSize)
+                        if(deck.Count != deckSize)
+                        {
+                            return new Response("200 OK", "text/plain", "Wrong number of Cards!\nNeed exactly " + deckSize + " Cards in Deck!\n");
+                        }
+
+                        if (Response.CheckIfCardsInStack(pid, deck) == true && deck.Count == deckSize)
                         {
                             // Good! - Player owns the Cards AND the right amount of Cards was sent. 
                             // Now we can make configurations on the deck:
@@ -373,7 +467,7 @@ namespace MCTG_Bernacki
                                 return new Response("200 OK", "text/plain", "Successfully configured deck!\n");
                             }
                         }
-                        return new Response("200 OK", "text/plain", "Could not create Deck with given Cards.\n");
+                        return new Response("200 OK", "text/plain", "Could not create Deck with Cards you don`t own.\n");
                     }
                     Response badLogin = Response.MakeBadLogin();
                     return badLogin;
@@ -565,6 +659,22 @@ namespace MCTG_Bernacki
                     cmd.Prepare();
                     cmd.ExecuteNonQuery();
                 }
+
+                conn.Close();
+                conn.Open();
+
+                using (var cmd = new NpgsqlCommand("Insert Into Scoreboard(pid,elo,wins,losses,draws,winstreak) Values(@pid,@elo,@wins,@losses,@draws,@winstreak)", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", uid);
+                    cmd.Parameters.AddWithValue("elo", 100);
+                    cmd.Parameters.AddWithValue("wins", 0);
+                    cmd.Parameters.AddWithValue("losses", 0);
+                    cmd.Parameters.AddWithValue("draws", 0);
+                    cmd.Parameters.AddWithValue("winstreak", 0);
+
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();
+                }
                 return true;
             }
             catch
@@ -603,7 +713,11 @@ namespace MCTG_Bernacki
 
         private static bool CreatePackage(List<CardID> cardIDs, int _price = 5)
         {
-            int newPackageID = -1;
+            int newPackageID = Response.GetHighestPackageId();
+            if (newPackageID == -1)
+                newPackageID = 1;
+            else
+                newPackageID += 1;
 
             using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
             conn.Open();
@@ -617,21 +731,7 @@ namespace MCTG_Bernacki
                     cmd.Prepare();
                     cmd.ExecuteNonQuery();
                 }
-
-                using (var cmd = new NpgsqlCommand("Select max(package_id) As maximum From Package", conn))
-                {
-                    cmd.Prepare();
-                    NpgsqlDataReader dr = cmd.ExecuteReader();
-                    if (dr.HasRows)
-                    {
-                        while(dr.Read())
-                        {
-                            newPackageID = (int)dr["maximum"];                            
-                        }
-                    }
-                    else
-                        newPackageID = 1;
-                }
+               
                 conn.Close();
                 conn.Open();
 
@@ -976,6 +1076,18 @@ namespace MCTG_Bernacki
                     conn.Close();
                     conn.Open();
 
+                    bool sold = true;
+                    using (var cmd = new NpgsqlCommand("Update Package Set sold = @sold Where package_id = @packageid", conn))
+                    {
+                        cmd.Parameters.AddWithValue("sold", sold);
+                        cmd.Parameters.AddWithValue("packageid", package_id);
+
+                        cmd.Prepare();
+                        cmd.ExecuteNonQuery();
+                    }
+                    conn.Close();
+                    conn.Open();
+
                     using (var cmd = new NpgsqlCommand("Select card_id From packagecontent Where package_id = @package_id", conn))
                     {
                         cmd.Parameters.AddWithValue("package_id", package_id);
@@ -995,16 +1107,18 @@ namespace MCTG_Bernacki
 
                     foreach(int id in CardIDs)
                     {
-                        using (var cmd = new NpgsqlCommand("Insert Into cardinstack(pid, card_id) Values(@pid, @cardid)", conn))
+                        if(Response.AlreadyOwnsCard(_pid, id) == false)
                         {
-                            cmd.Parameters.AddWithValue("pid", _pid);
-                            cmd.Parameters.AddWithValue("cardid", id);
+                            using (var cmd = new NpgsqlCommand("Insert Into cardinstack(pid, card_id) Values(@pid, @cardid)", conn))
+                            {
+                                cmd.Parameters.AddWithValue("pid", _pid);
+                                cmd.Parameters.AddWithValue("cardid", id);
 
-                            cmd.Prepare();
-                            cmd.ExecuteNonQuery();
+                                cmd.Prepare();
+                                cmd.ExecuteNonQuery();
+                            }
                         }
                     }
-
                     conn.Close();                    
                     return true;
                 }
@@ -1139,7 +1253,7 @@ namespace MCTG_Bernacki
 
             try
             {
-                using (var cmd = new NpgsqlCommand("Select card_id From cardinstack Where pid = @pid", conn))
+                using (var cmd = new NpgsqlCommand("Select card_id From cardindeck Where pid = @pid", conn))
                 {
                     cmd.Parameters.AddWithValue("pid", _pid);
                     cmd.Prepare();
@@ -1249,6 +1363,44 @@ namespace MCTG_Bernacki
             }
         }
 
+        private static int GetLeaderboardPos(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+            List<int>eloScores = new List<int>();
+            int playerElo = Response.GetEloRating(_pid);
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select elo From Scoreboard", conn))
+                {
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        for(int i=0; i<reader.FieldCount;i++)
+                        {
+                            eloScores.Add((int)reader[i]);
+                        }
+                    }
+                }
+
+                eloScores.Sort(); // Sorts ascending, i.e. : 1, 4, 6, 7...
+                eloScores.Reverse(); // Now its descending, i.e. : 7, 6, 4, 1...
+                for(int i=0; i<eloScores.Count;i++)
+                {
+                    if (eloScores[i] == playerElo)
+                        return i+1;
+                }
+                return -1; // Could not determine Score
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
         private static void CreateMatch(int matchID, int playerID, int opponentID, DateTime matchTime)
         {
             using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
@@ -1274,10 +1426,265 @@ namespace MCTG_Bernacki
             }
         }
 
+        private static int GetWins(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select wins From Scoreboard Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        return (int)reader["wins"];
+                    }
+                }
+                conn.Close();
+                return -1;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static int GetDraws(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select draws From Scoreboard Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        return (int)reader["draws"];
+                    }
+                }
+                conn.Close();
+                return -1;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static int GetLosses(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select losses From Scoreboard Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        return (int)reader["losses"];
+                    }
+                }
+                conn.Close();
+                return -1;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static int GetWinstreak(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select winstreak From Scoreboard Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        return (int)reader["winstreak"];
+                    }
+                }
+                conn.Close();
+                return -1;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static void UpdateWinnerScoreboard(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+            int elo = Response.GetEloRating(_pid); // There is another Function for that!           
+            int wins = Response.GetWins(_pid);
+            wins += 1;
+            int winstreak = Response.GetWinstreak(_pid);
+            winstreak += 1;
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Update Scoreboard Set elo = @elo, wins = @wins, winstreak = @winstreak Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("elo", elo);
+                    cmd.Parameters.AddWithValue("wins", wins);
+                    cmd.Parameters.AddWithValue("winstreak", winstreak);
+                    cmd.Parameters.AddWithValue("pid", _pid);
+
+                    cmd.Prepare();
+                    cmd.ExecuteReader();
+                }
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static void UpdateLoserScoreboard(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+            int elo = Response.GetEloRating(_pid);
+            int losses = Response.GetLosses(_pid);
+            losses += 1;
+            int winstreak = 0;
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Update Scoreboard Set elo = @elo, losses = @losses, winstreak = @winstreak Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("elo", elo);
+                    cmd.Parameters.AddWithValue("losses", losses);
+                    cmd.Parameters.AddWithValue("winstreak", winstreak);
+                    cmd.Parameters.AddWithValue("pid", _pid);
+
+                    cmd.Prepare();
+                    cmd.ExecuteReader();
+                }
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static void UpdateDrawScoreboard(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+            int elo = Response.GetEloRating(_pid);
+            int draws = Response.GetDraws(_pid);
+            draws += 1;
+            int winstreak = 0;
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Update Scoreboard Set draws = @draws, winstreak = @winstreak Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("draws", draws);
+                    cmd.Parameters.AddWithValue("winstreak", winstreak);
+                    cmd.Parameters.AddWithValue("pid", _pid);
+
+                    cmd.Prepare();
+                    cmd.ExecuteReader();
+                }
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static Dictionary<String,int> GetPlayerStats(int _pid)
+        {
+            Dictionary<String,int> Stats = new Dictionary<String, int>();
+
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select * From scoreboard Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        Stats.Add("elo", (int)reader["elo"]);
+                        Stats.Add("wins", (int)reader["wins"]);
+                        Stats.Add("losses", (int)reader["losses"]);
+                        Stats.Add("draws", (int)reader["draws"]);
+                        Stats.Add("winstreak", (int)reader["winstreak"]);
+                    }
+                }
+                return Stats;
+            }
+            catch
+            {
+                throw;
+            }          
+        }
+
+        private static bool MatchesExist()
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select * From matchhistory", conn))
+                {
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        if (reader.HasRows)
+                            return true;
+                        else
+                            return false;
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
         private static int GetMatchID()
         {
             using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
             conn.Open();
+
+            if (!Response.MatchesExist())
+                return 1;
 
             try
             {
@@ -1288,6 +1695,9 @@ namespace MCTG_Bernacki
 
                     while (reader.Read())
                     {
+                        if (!reader.HasRows)
+                            return 1;
+
                         int newID = (int)reader["result"];
                         newID += 1;
                         return newID;
@@ -1298,6 +1708,219 @@ namespace MCTG_Bernacki
             catch
             {
                 throw;
+            }
+        }
+
+        private static int GetEloRating(int _pid)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+            
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select elo From Player Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        return (int)reader["elo"];
+                    }
+                }
+                conn.Close();
+                return -1;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+
+        private static void UpdateEloRating(int _pid, char c, int value)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+            int elo = Response.GetEloRating(_pid); // Get Current Elo
+
+            if (c == '+')
+                elo += value;
+            else if (c == '-')
+                elo -= value;  
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Update Player Set elo = @elo Where pid = @pid", conn))
+                {
+                    cmd.Parameters.AddWithValue("elo", elo);
+                    cmd.Parameters.AddWithValue("pid", _pid);
+
+                    cmd.Prepare();
+                    cmd.ExecuteNonQuery();                   
+                }
+                conn.Close();                
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static bool AlreadyOwnsCard(int _pid, int cardID)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select * From cardinstack Where pid = @pid And card_id = @cardid", conn))
+                {
+                    cmd.Parameters.AddWithValue("pid", _pid);
+                    cmd.Parameters.AddWithValue("cardid", cardID);
+
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    if (reader.HasRows)
+                    {
+                        conn.Close();
+                        return true;
+                    }
+                }
+                conn.Close();
+                return false;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static int ChooseRandomPackage()
+        {
+            List<int> unsoldIDs = Response.GetUnsoldPackages();
+            if (unsoldIDs.Count <= 0)
+            {
+                return -1;
+            }
+
+            Random rnd = new Random();
+            int rndElement = rnd.Next(1,unsoldIDs.Count);
+            int chosenID = unsoldIDs[rndElement - 1];
+            return chosenID;            
+        }
+
+        private static List<int> GetUnsoldPackages()
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+            bool sold = false;
+            List<int> unsoldIDs = new List<int>(); 
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select package_id From package Where sold = @sold", conn))
+                {
+                    cmd.Parameters.AddWithValue("sold", sold);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        unsoldIDs.Add((int)reader["package_id"]);
+                    }
+                }
+                return unsoldIDs;
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static bool PackageStillAvailable(int packageID)
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select sold From package Where package_id = @packageid", conn))
+                {
+                    cmd.Parameters.AddWithValue("packageid", packageID);
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        bool isSold = (bool)reader["sold"];
+                        if (isSold)
+                        {
+                            return false;
+                        }
+                        else
+                            return true;
+                    }
+                }
+                return false; 
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+
+
+        private static int GetLowestPackageId()
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select min(package_id) As result From package", conn))
+                {
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {  
+                        return (int)reader["result"];
+                    }
+                }
+                return -2;
+            }
+            catch
+            {
+                return -1; // In case database is empty
+            }
+        }
+
+        private static int GetHighestPackageId()
+        {
+            using var conn = new NpgsqlConnection(HTTPServer.CONN_STRING);
+            conn.Open();
+
+            try
+            {
+                using (var cmd = new NpgsqlCommand("Select max(package_id) As result From package", conn))
+                {
+                    cmd.Prepare();
+                    NpgsqlDataReader reader = cmd.ExecuteReader();
+
+                    while (reader.Read())
+                    {
+                        return (int)reader["result"];
+                    }
+                }
+                return -2;
+            }
+            catch
+            {
+                return -1; // In case no packages exist!!
             }
         }
 
@@ -1363,7 +1986,7 @@ namespace MCTG_Bernacki
 
         private static List<Card> PrepareDeck(int pid)
         {
-            // -> Get both players cardIDs while looping database function, that looks for them in CardInDeck
+            // -> Get players cardID while looping database function, that looks for them in CardInDeck
             List<int> CardIDs = Response.GetDeck(pid);
 
             // -> Get card Information by looping database function, that gets card data for every cardID
@@ -1379,6 +2002,28 @@ namespace MCTG_Bernacki
             for (int i = 0; i < CardInfo.Count; i++)
             {
                 Deck.Add(Response.GetCardFromCardInfo(CardInfo[i]));                
+            }
+            return Deck;
+        }
+
+        private static List<Card> PrepareStack(int pid)
+        {
+            // -> Get players cardID while looping database function, that looks for them in CardInDeck
+            List<int> CardIDs = Response.GetStack(pid);
+
+            // -> Get card Information by looping database function, that gets card data for every cardID
+            List<CardInfo> CardInfo = new List<CardInfo>();
+
+            for (int i = 0; i < CardIDs.Count; i++)
+            {
+                CardInfo.Add(Response.GetCardInfoFromID(CardIDs[i]));
+            }
+
+            List<Card> Deck = new List<Card>();
+
+            for (int i = 0; i < CardInfo.Count; i++)
+            {
+                Deck.Add(Response.GetCardFromCardInfo(CardInfo[i]));
             }
             return Deck;
         }

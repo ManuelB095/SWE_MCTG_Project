@@ -10,7 +10,7 @@ namespace MCTG_Bernacki
         public List<Card> DeckPlTwo;
         public const int MAX_ROUNDS = 100;
         private bool running;
-        private int Rounds { get; set; }
+        public int Rounds { get; set; }
         private List<String> Logs { get; set; }
 
         public BattleHandler(List<Card> deckOne, List<Card> deckTwo)
@@ -35,7 +35,7 @@ namespace MCTG_Bernacki
                 Random rndPlTwo = new Random();
                 int chosenTwo = rndPlTwo.Next(1, this.DeckPlTwo.Count);
 
-                this.PlayRound(this.DeckPlOne[chosenOne], this.DeckPlTwo[chosenTwo]);
+                this.PlayRound(this.DeckPlOne[chosenOne-1], this.DeckPlTwo[chosenTwo-1]);
                 if(this.DeckPlOne.Count < 1)
                 {
                     String win = "\nPlayer B has defeated Player A after ";
