@@ -3,7 +3,7 @@
   <Class Name="MCTG_Bernacki.Card" Collapsed="true">
     <Position X="11.75" Y="0.5" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AAAAAACAgQAAQIABAAgAAAQAAAAAAAAAAAAAQAAAAAA=</HashCode>
+      <HashCode>AAAAAACAgQAAQIABAAgAAAQCAAAAAAAAAAAAQAAAAAA=</HashCode>
       <FileName>Card.cs</FileName>
     </TypeIdentifier>
   </Class>
@@ -17,15 +17,16 @@
   <Class Name="MCTG_Bernacki.FireElve" Collapsed="true">
     <Position X="17.5" Y="3.25" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AAAAAAAAgAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <HashCode>AAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>FireElve.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="MCTG_Bernacki.FireSpell" Collapsed="true">
+  <Class Name="MCTG_Bernacki.ElectroSpell" Collapsed="true">
     <Position X="6.25" Y="3.25" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
-      <FileName>FireSpell.cs</FileName>
+      <FileName>ElectroSpell.cs</FileName>
+      <NewMemberFileName>FireSpell.cs</NewMemberFileName>
     </TypeIdentifier>
   </Class>
   <Class Name="MCTG_Bernacki.Goblin" Collapsed="true">
@@ -38,21 +39,21 @@
   <Class Name="MCTG_Bernacki.HTTPServer" Collapsed="true">
     <Position X="24.5" Y="0.5" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AgAAAAAAACAAAAAAAAAAAAAAAIgAAIAAAgAAAAAAAEo=</HashCode>
+      <HashCode>AgAAAAAAACBAAAQAAAAAAAAAAIgAhIAABgAAAAAAAEo=</HashCode>
       <FileName>HTTPServer.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="MCTG_Bernacki.Knight" Collapsed="true">
     <Position X="15.25" Y="3.25" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <HashCode>AAAAAAAAAAAAQAAAAAAAAAACAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Knight.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="MCTG_Bernacki.Kraken" Collapsed="true">
     <Position X="19.75" Y="3.25" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AAAAAAAAgAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <HashCode>AAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Kraken.cs</FileName>
     </TypeIdentifier>
   </Class>
@@ -87,18 +88,20 @@
   <Class Name="MCTG_Bernacki.Request" Collapsed="true">
     <Position X="28" Y="0.5" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AAAAAAAAAAAAAAAAAAAQAACAACAACAAAAQAAAAAAAAA=</HashCode>
+      <HashCode>BAAAAAAAAAAABAAAAAAQAACAACAAAAAAAQAAAQAAAAA=</HashCode>
       <FileName>Request.cs</FileName>
     </TypeIdentifier>
+    <Lollipop Position="0.2" />
   </Class>
   <Class Name="MCTG_Bernacki.Response" Collapsed="true">
     <Position X="24.5" Y="1.5" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AgQAAAAAAAAAAAAAAAAMAAAACAIAAAAgAAAAIAAQACE=</HashCode>
+      <HashCode>AiQKARNARQghCQQBRAouVIQEKAoMhIAgwBQRIAAxYCk=</HashCode>
       <FileName>Response.cs</FileName>
     </TypeIdentifier>
+    <Lollipop Position="0.2" />
   </Class>
-  <Class Name="MCTG_Bernacki.SpellCard" Collapsed="true">
+  <Class Name="MCTG_Bernacki.SpellCard">
     <Position X="4" Y="1.75" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
@@ -112,7 +115,7 @@
       <FileName>User.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="MCTG_Bernacki.WaterSpell" Collapsed="true">
+  <Class Name="MCTG_Bernacki.WaterSpell">
     <Position X="4" Y="3.25" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
@@ -122,14 +125,14 @@
   <Class Name="MCTG_Bernacki.Wizzard" Collapsed="true">
     <Position X="22" Y="3.25" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AAAAAAAAgAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <HashCode>AAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Wizzard.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Enum Name="MCTG_Bernacki.element" Collapsed="true">
     <Position X="24.5" Y="2.75" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AQAAAAAAACgAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAQA=</HashCode>
+      <HashCode>AAAAAAAAACgAAAAAAAAAAAAAAAAAAAAAAAAAQAAAASA=</HashCode>
       <FileName>Enums.cs</FileName>
     </TypeIdentifier>
   </Enum>

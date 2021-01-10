@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace MCTG_Bernacki
 {
-    class User
+    public class User
     {
         public string Username { get; private set; }
         public List<Card> AllCards { get; private set; }

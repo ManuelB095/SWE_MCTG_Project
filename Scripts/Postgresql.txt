@@ -1,0 +1,155 @@
+-- CREATE TABLE STATEMENTS
+
+Create Table Users (
+	uid serial primary key,
+	username varchar(64) not null,
+	password varchar(32) not null,
+	admin integer not null,
+	Check (admin between 0 and 1),
+	token varchar(64) 
+);
+
+Create Table Package (
+	package_id serial Primary Key,
+	price int not null,
+	sold boolean not null default false,
+	Check (price >= 0)
+);
+
+Create Table Player (
+	pid serial primary key,
+	coins int not null,
+	elo int not null
+);
+
+Create Table BattleQueue (
+	pid serial primary key,
+	Constraint fk_pid Foreign Key(pid) References Player(pid)
+);
+
+Create Table Card (
+	card_id serial primary key,
+	name varchar(64) not null,
+	type varchar(64) not null,
+	element varchar(32) not null,
+	damage integer not null,
+	price integer not null,
+	Check (price >= 0)
+);
+
+Create Table CardInStack (
+	cardinstack_id serial primary key,
+	pid integer not null,
+	card_id integer not null,
+	
+	Constraint fk_pid Foreign Key(pid) References Player(pid),
+	Constraint fk_card_id Foreign Key(card_id) References Card(card_id)
+);
+
+Create Table CardInDeck (
+	cardindeck_id serial primary key,
+	pid integer not null,
+	card_id integer not null,
+	
+	Constraint fk_pid Foreign Key(pid) References Player(pid),
+	Constraint fk_card_id Foreign Key(card_id) References Card(card_id)
+);
+
+Create Table PackageContent (
+	pcontent_id serial primary key,
+	package_id integer not null,
+	card_id integer not null,
+	
+	Constraint fk_package_id Foreign Key(package_id) References Package(package_id),
+	Constraint fk_card_id Foreign Key(card_id) References Card(card_id)
+);
+
+Create Table TradeDeals (
+	deal_id serial primary key,
+	pid integer not null,
+	card_id integer not null,
+	price integer not null,
+	Check (price >= 0),
+	
+	Constraint fk_pid Foreign Key(pid) References Player(pid),
+	Constraint fk_card_id Foreign Key(card_id) References Card(card_id)
+);
+
+Create Table MatchHistory(
+	match_id serial Primary Key,
+	playerOneID int not null,
+	playerTwoID int not null,
+	status varchar(64),
+	winner int,
+	rounds int,
+	Matchdate Timestamp,
+	
+	Constraint fk_playerOneID Foreign Key(playerOneID) References Player(pid),
+	Constraint fk_playerTwoID Foreign Key(playerTwoID) References Player(pid)
+);
+
+Create Table Scoreboard(
+	pid int primary key,
+	elo int not null,
+	wins int not null,
+	losses int not null,
+	draws int not null,
+	winstreak int not null,
+	
+	Constraint fk_scorepid Foreign Key(pid) References Player(pid)
+);
+
+-- SELECT STATEMENTS
+-- select * from Users;
+-- select * from Package;
+-- select * from Player;
+-- select * from BattleQueue;
+-- select * from Card;
+-- select * from CardInStack;
+-- select * from CardInDeck;
+-- select * from PackageContent;
+-- select * from TradeDeals;
+
+
+
+-- DROP STATEMENTS ( IF NEEDED )
+
+--drop table Scoreboard;
+--drop table MatchHistory;
+--drop table TradeDeals;
+--drop table PackageContent;
+--drop table CardInDeck;
+--drop table CardInStack;
+--drop table Card;
+--drop table BattleQueue;
+--drop table Player;
+--drop table Package;
+--drop table User;
+
+-- SOME INSERTS I MADE (!Additional Inserts were made via curl too!)
+
+-- Insert Into Users(uid,username,password,admin,token) Values(1,'admin','admin',1,'admin-mtcgToken');
+
+--Insert Into Card(name,type,element,damage,price) 
+--Values('OrcWarrior', 'Orc', 'Normal', 12, 2);
+
+--Insert Into Card(name,type,element,damage,price) 
+--Values('PsyWizzard', 'Wizzard', 'Normal', 18, 4);
+
+--Insert Into Card(name,type,element,damage,price) 
+--Values('RedDragon', 'Dragon', 'Fire', 26, 5);
+
+--Insert Into Card(name,type,element,damage,price) 
+--Values('Leviathan', 'Kraken', 'Water', 34, 10);
+
+--Insert Into Card(name,type,element,damage,price) 
+--Values('Legolad', 'FireElve', 'Fire', 16, 4);
+
+--Insert Into Card(name,type,element,damage,price) 
+--Values('KnightRider', 'Knight', 'Normal', 12, 2);
+
+--Insert Into Card(name,type,element,damage,price) 
+--Values('Splash', 'Spell', 'Water', 18, 4);
+
+--Insert Into Card(name,type,element,damage,price) 
+--Values('Magic Fist', 'Spell', 'Normal', 12, 3);

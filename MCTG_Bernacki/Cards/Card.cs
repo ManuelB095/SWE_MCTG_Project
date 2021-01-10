@@ -85,6 +85,8 @@ namespace MCTG_Bernacki
                     return this.Damage * 2;
                 else if (enemy.Element == element.NORMAL)
                     return (int)Math.Floor((double)this.Damage / 2);
+                else if (enemy.Element == element.ELECTRO)
+                    return (int)Math.Floor((double)this.Damage / 2);
                 else
                     return this.Damage;
 
@@ -95,6 +97,8 @@ namespace MCTG_Bernacki
                     return this.Damage * 2;
                 else if (enemy.Element == element.WATER)
                     return (int)Math.Floor((double)this.Damage / 2);
+                else if (enemy.Element == element.ELECTRO)
+                    return this.Damage;
                 else
                     return this.Damage;
             }
@@ -104,6 +108,21 @@ namespace MCTG_Bernacki
                     return this.Damage * 2;
                 else if (enemy.Element == element.FIRE)
                     return (int)Math.Floor((double)this.Damage / 2);
+                else if (enemy.Element == element.ELECTRO)
+                    return this.Damage * 2;
+                else
+                    return this.Damage;
+            }
+            else if(this.Element == element.ELECTRO)
+            {
+                Random rnd = new Random();
+                double factor = rnd.Next(5, 25); // Random int between 5 and 25
+                if (enemy.Element == element.WATER)
+                    return (int)Math.Floor((double)this.Damage * (factor/5.0));
+                else if (enemy.Element == element.FIRE)
+                    return (int)Math.Floor((double)this.Damage * (factor/10.0));
+                else if (enemy.Element == element.NORMAL)
+                    return (int)Math.Floor((double)this.Damage * (factor/20.0));
                 else
                     return this.Damage;
             }

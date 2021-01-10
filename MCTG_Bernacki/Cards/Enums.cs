@@ -9,7 +9,7 @@ namespace MCTG_Bernacki
         FIRE,
         WATER,
         EARTH,
-        AIR,
+        ELECTRO,
         NORMAL
     }
 }
